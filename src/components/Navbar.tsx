@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { FiShoppingCart, FiMenu, FiX, FiUser } from 'react-icons/fi'
 import { routes } from '../constants/routes'
+import { useCartContext } from '../context/CartContext'
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { totalItems } = useCartContext()
 
   const navLinks = [
     { to: routes.HOME, label: 'Home' },
@@ -41,6 +43,7 @@ const Navbar = () => {
               <NavLink
                 key={link.to}
                 to={link.to}
+                end={link.to === routes.HOME}
                 className={({ isActive }) =>
                   `font-medium text-sm transition-colors duration-200 ${
                     isActive
@@ -62,9 +65,11 @@ const Navbar = () => {
               aria-label="Cart"
             >
               <FiShoppingCart className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-neutral-900 text-xs font-bold rounded-full flex items-center justify-center">
-                0
-              </span>
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-neutral-900 text-xs font-bold rounded-full flex items-center justify-center">
+                  {totalItems > 99 ? '99+' : totalItems}
+                </span>
+              )}
             </Link>
             <Link
               to={routes.LOGIN}
@@ -94,6 +99,7 @@ const Navbar = () => {
               <NavLink
                 key={link.to}
                 to={link.to}
+                end={link.to === routes.HOME}
                 onClick={closeMobileMenu}
                 className={({ isActive }) =>
                   `block py-2 px-3 rounded-lg font-medium text-sm transition-colors ${
@@ -113,7 +119,7 @@ const Navbar = () => {
                 className="flex items-center gap-3 py-2 px-3 rounded-lg text-neutral-700 hover:bg-neutral-100"
               >
                 <FiShoppingCart className="w-5 h-5" />
-                <span className="font-medium text-sm">Cart (0)</span>
+                <span className="font-medium text-sm">Cart ({totalItems})</span>
               </Link>
               <Link
                 to={routes.LOGIN}

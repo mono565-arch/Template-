@@ -1,6 +1,13 @@
 import { Link } from 'react-router-dom'
-import { FiFacebook, FiInstagram, FiTwitter, FiPhone, FiMail, FiMapPin } from 'react-icons/fi'
+import { FiFacebook, FiInstagram, FiPhone, FiMail, FiMapPin } from 'react-icons/fi'
 import { routes } from '../constants/routes'
+
+// Social URLs - can be changed in admin settings later
+const socialUrls = {
+  facebook: 'https://facebook.com/pizzasaucy',
+  instagram: 'https://instagram.com/pizzasaucy',
+  whatsapp: 'https://wa.me/923001234567',
+}
 
 const Footer = () => {
   const quickLinks = [
@@ -36,25 +43,31 @@ const Footer = () => {
             </p>
             <div className="flex items-center gap-3">
               <a
-                href="#"
+                href={socialUrls.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center hover:bg-primary hover:text-neutral-900 transition-colors"
                 aria-label="Facebook"
               >
                 <FiFacebook className="w-4 h-4" />
               </a>
               <a
-                href="#"
+                href={socialUrls.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center hover:bg-primary hover:text-neutral-900 transition-colors"
                 aria-label="Instagram"
               >
                 <FiInstagram className="w-4 h-4" />
               </a>
               <a
-                href="#"
+                href={socialUrls.whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center hover:bg-primary hover:text-neutral-900 transition-colors"
-                aria-label="Twitter"
+                aria-label="WhatsApp"
               >
-                <FiTwitter className="w-4 h-4" />
+                <span className="text-sm font-bold">W</span>
               </a>
             </div>
           </div>
@@ -100,12 +113,12 @@ const Footer = () => {
               <li className="flex items-start gap-3">
                 <FiMapPin className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                 <span className="text-sm text-neutral-400">
-                  123 Pizza Lane, Food District, NY 10001
+                  123 Pizza Lane, Gulberg III, Lahore, Pakistan
                 </span>
               </li>
               <li className="flex items-center gap-3">
                 <FiPhone className="w-5 h-5 text-primary shrink-0" />
-                <span className="text-sm text-neutral-400">+1 (555) 123-4567</span>
+                <span className="text-sm text-neutral-400">+92 (42) 123-4567</span>
               </li>
               <li className="flex items-center gap-3">
                 <FiMail className="w-5 h-5 text-primary shrink-0" />
