@@ -39,67 +39,9 @@ export const categories: Category[] = [
 // Menu page categories (for tabs)
 export const menuCategories = ['All', 'Pizza', 'Burgers', 'Fries', 'Broast', 'Sandwich', 'Pasta', 'Drinks', 'Ice Cream', 'Desserts']
 
-// Featured products for home page
-export const featuredProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Classic Margherita',
-    description: 'Fresh mozzarella, vine-ripened tomatoes, and fragrant basil on our hand-tossed crust.',
-    price: 12.99,
-    rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop',
-    category: 'Pizza',
-  },
-  {
-    id: '2',
-    name: 'Pepperoni Feast',
-    description: 'Double pepperoni, extra mozzarella, and our signature tomato sauce.',
-    price: 14.99,
-    rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=400&h=300&fit=crop',
-    category: 'Pizza',
-  },
-  {
-    id: '3',
-    name: 'BBQ Chicken',
-    description: 'Grilled chicken, smoky BBQ sauce, red onions, and cilantro.',
-    price: 15.99,
-    rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=300&fit=crop',
-    category: 'Pizza',
-  },
-  {
-    id: '4',
-    name: 'Veggie Supreme',
-    description: 'Bell peppers, mushrooms, olives, onions, and fresh tomatoes.',
-    price: 13.99,
-    rating: 4.6,
-    image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=300&fit=crop',
-    category: 'Pizza',
-  },
-  {
-    id: '5',
-    name: 'Meat Lovers',
-    description: 'Pepperoni, sausage, bacon, and ham with extra cheese.',
-    price: 16.99,
-    rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=400&h=300&fit=crop',
-    category: 'Pizza',
-  },
-  {
-    id: '6',
-    name: 'Hawaiian Delight',
-    description: 'Sweet pineapple, smoked ham, and mozzarella on a golden crust.',
-    price: 14.49,
-    rating: 4.5,
-    image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=300&fit=crop',
-    category: 'Pizza',
-  },
-]
-
-// Full menu products for menu page - ALL 9 CATEGORIES
+// Full menu products — single source of truth
 export const menuProducts: Product[] = [
-  // ===== PIZZA =====
+  // ===== PIZZA (6 items) =====
   {
     id: 'p1',
     name: 'Classic Margherita',
@@ -145,6 +87,30 @@ export const menuProducts: Product[] = [
     image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=300&fit=crop',
     category: 'Pizza',
     ingredients: ['Bell Peppers', 'Mushrooms', 'Black Olives', 'Red Onions', 'Tomatoes'],
+    isPopular: false,
+    isAvailable: true,
+  },
+  {
+    id: 'p5',
+    name: 'Meat Lovers',
+    description: 'Pepperoni, sausage, bacon, and ham with extra cheese.',
+    price: 16.99,
+    rating: 4.9,
+    image: 'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=400&h=300&fit=crop',
+    category: 'Pizza',
+    ingredients: ['Pepperoni', 'Sausage', 'Bacon', 'Ham', 'Mozzarella Cheese'],
+    isPopular: true,
+    isAvailable: true,
+  },
+  {
+    id: 'p6',
+    name: 'Hawaiian Delight',
+    description: 'Sweet pineapple, smoked ham, and mozzarella on a golden crust.',
+    price: 14.49,
+    rating: 4.5,
+    image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=300&fit=crop',
+    category: 'Pizza',
+    ingredients: ['Pineapple', 'Smoked Ham', 'Mozzarella', 'Tomato Sauce'],
     isPopular: false,
     isAvailable: true,
   },
@@ -464,6 +430,19 @@ export const menuProducts: Product[] = [
     isPopular: false,
     isAvailable: true,
   },
+]
+
+// Alias for pages that import 'products' instead of 'menuProducts'
+export const products = menuProducts
+
+// Featured products — SAME object references as menuProducts (fixes the bug!)
+export const featuredProducts: Product[] = [
+  menuProducts[0], // p1 - Classic Margherita
+  menuProducts[1], // p2 - Pepperoni Feast
+  menuProducts[2], // p3 - BBQ Chicken
+  menuProducts[3], // p4 - Veggie Supreme
+  menuProducts[4], // p5 - Meat Lovers
+  menuProducts[5], // p6 - Hawaiian Delight
 ]
 
 export const reviews: Review[] = [
