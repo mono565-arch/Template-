@@ -19,10 +19,16 @@ const AdminCoupons = () => {
 
   const [showModal, setShowModal] = useState(false)
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    code: string
+    discount: number
+    type: 'percentage' | 'fixed'
+    minOrder: number
+    enabled: boolean
+  }>({
     code: '',
     discount: 0,
-    type: 'percentage' as const,
+    type: 'percentage',
     minOrder: 0,
     enabled: true,
   })

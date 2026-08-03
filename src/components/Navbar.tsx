@@ -1,12 +1,44 @@
-import { useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
-import { FiShoppingCart, FiMenu, FiX, FiUser } from 'react-icons/fi'
+import { useState, useEffect } from 'react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { FiShoppingCart, FiMenu, FiX, FiUser, FiLogOut } from 'react-icons/fi'
 import { routes } from '../constants/routes'
 import { useCartContext } from '../context/CartContext'
 
+interface AuthUser {
+  id: string
+  name: string
+  email: string
+  avatar?: string
+  role: string
+}
+
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const { totalItems } = useCartContext()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const stored = localStorage.getItem('pizza_saucy_auth')
+      if (stored) {
+        try {
+          setAuthUser(JSON.parse(stored))
+        } catch {
+          setAuthUser(null)
+        }
+      } else {
+        setAuthUser(null)
+      }
+    }
+    checkAuth()
+    window.addEventListener('storage', checkAuth)
+    const interval = setInterval(checkAuth, 500)
+    return () => {
+      window.removeEventListener('storage', checkAuth)
+      clearInterval(interval)
+    }
+  }, [])
 
   const navLinks = [
     { to: routes.HOME, label: 'Home' },
@@ -21,6 +53,13 @@ const Navbar = () => {
 
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('pizza_saucy_auth')
+    setAuthUser(null)
+    navigate(routes.HOME)
+    closeMobileMenu()
   }
 
   return (
@@ -71,13 +110,38 @@ const Navbar = () => {
                 </span>
               )}
             </Link>
-            <Link
-              to={routes.LOGIN}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-neutral-900 font-semibold text-sm rounded-lg hover:bg-primary-600 transition-colors"
-            >
-              <FiUser className="w-4 h-4" />
-              Login
-            </Link>
+            {authUser ? (
+              <div className="flex items-center gap-3">
+                <Link
+                  to={routes.PROFILE}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-neutral-100 transition-colors"
+                >
+                  {authUser.avatar ? (
+                    <img src={authUser.avatar} alt={authUser.name} className="w-8 h-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                      <FiUser className="w-4 h-4 text-primary-600" />
+                    </div>
+                  )}
+                  <span className="text-sm font-medium text-neutral-700">{authUser.name.split(' ')[0]}</span>
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-neutral-400 hover:text-red-500 transition-colors"
+                  aria-label="Logout"
+                >
+                  <FiLogOut className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <Link
+                to={routes.LOGIN}
+                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-neutral-900 font-semibold text-sm rounded-lg hover:bg-primary-600 transition-colors"
+              >
+                <FiUser className="w-4 h-4" />
+                Login
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -121,14 +185,38 @@ const Navbar = () => {
                 <FiShoppingCart className="w-5 h-5" />
                 <span className="font-medium text-sm">Cart ({totalItems})</span>
               </Link>
-              <Link
-                to={routes.LOGIN}
-                onClick={closeMobileMenu}
-                className="flex items-center gap-3 py-2 px-3 rounded-lg bg-primary text-neutral-900 font-semibold text-sm"
-              >
-                <FiUser className="w-5 h-5" />
-                Login
-              </Link>
+              {authUser ? (
+                <>
+                  <Link
+                    to={routes.PROFILE}
+                    onClick={closeMobileMenu}
+                    className="flex items-center gap-3 py-2 px-3 rounded-lg text-neutral-700 hover:bg-neutral-100"
+                  >
+                    {authUser.avatar ? (
+                      <img src={authUser.avatar} alt={authUser.name} className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <FiUser className="w-5 h-5" />
+                    )}
+                    <span className="font-medium text-sm">{authUser.name}</span>
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 py-2 px-3 rounded-lg text-red-600 hover:bg-red-50"
+                  >
+                    <FiLogOut className="w-5 h-5" />
+                    <span className="font-medium text-sm">Logout</span>
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to={routes.LOGIN}
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-3 py-2 px-3 rounded-lg bg-primary text-neutral-900 font-semibold text-sm"
+                >
+                  <FiUser className="w-5 h-5" />
+                  Login
+                </Link>
+              )}
             </div>
           </div>
         </div>

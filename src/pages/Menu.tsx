@@ -1,18 +1,40 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { FiSearch, FiShoppingCart, FiEye, FiStar, FiFilter, FiX } from 'react-icons/fi'
-import SectionTitle from '../components/SectionTitle'
+// SectionTitle removed - not used in this page
 import ProductModal from '../components/ProductModal'
 import { useCartContext } from '../context/CartContext'
 import { menuCategories, menuProducts } from '../data'
 import type { Product } from '../data'
+import type { PizzaSize } from '../types'
 
 const Menu = () => {
-  const [activeCategory, setActiveCategory] = useState('All')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const categoryParam = searchParams.get('category') || 'All'
+
+  const [activeCategory, setActiveCategory] = useState(categoryParam)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSize>>({})
   const { addItem } = useCartContext()
+
+  useEffect(() => {
+    if (categoryParam && menuCategories.includes(categoryParam)) {
+      setActiveCategory(categoryParam)
+    }
+  }, [categoryParam])
+
+  const handleCategoryChange = (category: string) => {
+    setActiveCategory(category)
+    if (category === 'All') {
+      searchParams.delete('category')
+    } else {
+      searchParams.set('category', category)
+    }
+    setSearchParams(searchParams)
+  }
 
   // Filter products by category and search
   const filteredProducts = useMemo(() => {
@@ -52,14 +74,36 @@ const Menu = () => {
     setSearchQuery('')
   }
 
+  const getProductPrice = (product: Product) => {
+    const size = selectedSizes[product.id]
+    if (size && product.sizes) {
+      const found = product.sizes.find((s) => s.size === size)
+      if (found) return found.price
+    }
+    return product.price
+  }
+
   const handleAddToCart = (product: Product) => {
+    const size = selectedSizes[product.id]
+    let price = product.price
+    if (size && product.sizes) {
+      const found = product.sizes.find((s) => s.size === size)
+      if (found) price = found.price
+    } else if (product.sizes && product.sizes.length > 0) {
+      price = product.sizes[1].price
+    }
     addItem({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: price,
       quantity: 1,
       image: product.image,
+      size: size || (product.sizes && product.sizes.length > 0 ? product.sizes[1].size : undefined),
     })
+  }
+
+  const handleSizeSelect = (productId: string, size: PizzaSize) => {
+    setSelectedSizes((prev) => ({ ...prev, [productId]: size }))
   }
 
   return (
@@ -105,7 +149,7 @@ const Menu = () => {
         {menuCategories.map((category) => (
           <button
             key={category}
-            onClick={() => setActiveCategory(category)}
+            onClick={() => handleCategoryChange(category)}
             className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
               activeCategory === category
                 ? 'bg-primary text-neutral-900 shadow-md'
@@ -145,7 +189,7 @@ const Menu = () => {
               <button
                 key={category}
                 onClick={() => {
-                  setActiveCategory(category)
+                  handleCategoryChange(category)
                   setShowMobileFilters(false)
                 }}
                 className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
@@ -222,12 +266,31 @@ const Menu = () => {
                     </h3>
                   </div>
                   <span className="text-primary-700 font-bold text-lg shrink-0">
-                    ${product.price.toFixed(2)}
+                    Rs {getProductPrice(product)}
                   </span>
                 </div>
                 <p className="text-neutral-500 text-sm line-clamp-2 mb-4 flex-1">
                   {product.description}
                 </p>
+
+                {/* Size Selector for Pizza */}
+                {product.sizes && product.sizes.length > 0 && (
+                  <div className="flex gap-2 mb-3">
+                    {product.sizes.map((s) => (
+                      <button
+                        key={s.size}
+                        onClick={() => handleSizeSelect(product.id, s.size)}
+                        className={`px-2.5 py-1 text-[11px] font-medium rounded-lg border transition-colors ${
+                          selectedSizes[product.id] === s.size || (!selectedSizes[product.id] && s.size === 'Medium')
+                            ? 'bg-primary text-neutral-900 border-primary'
+                            : 'bg-white text-neutral-600 border-neutral-200 hover:border-primary-300'
+                        }`}
+                      >
+                        {s.size}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex gap-2 mt-auto">
@@ -269,7 +332,7 @@ const Menu = () => {
           </p>
           <button
             onClick={() => {
-              setActiveCategory('All')
+              handleCategoryChange('All')
               setSearchQuery('')
             }}
             className="btn-primary"
@@ -285,6 +348,8 @@ const Menu = () => {
         isOpen={isModalOpen}
         onClose={closeModal}
         onAddToCart={handleAddToCart}
+        selectedSize={selectedProduct ? selectedSizes[selectedProduct.id] : undefined}
+        onSizeSelect={(size) => selectedProduct && handleSizeSelect(selectedProduct.id, size)}
       />
     </div>
   )

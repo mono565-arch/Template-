@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FiUser, FiMail, FiLock, FiUserPlus, FiEye, FiEyeOff } from 'react-icons/fi'
 import { routes } from '../constants/routes'
 
 const Register = () => {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -38,7 +39,24 @@ const Register = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validate()) {
-      alert('Account created successfully!')
+      const users = JSON.parse(localStorage.getItem('pizza_saucy_users') || '[]')
+      if (users.find((u: { email: string }) => u.email === formData.email)) {
+        setErrors({ ...errors, general: 'An account with this email already exists' })
+        return
+      }
+      const newUser = {
+        id: 'user-' + Date.now(),
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        avatar: '',
+        phone: '',
+        address: '',
+      }
+      users.push(newUser)
+      localStorage.setItem('pizza_saucy_users', JSON.stringify(users))
+      localStorage.setItem('pizza_saucy_auth', JSON.stringify({ id: newUser.id, email: newUser.email, name: newUser.name, avatar: '', role: 'customer' }))
+      navigate(routes.PROFILE)
     }
   }
 
@@ -55,6 +73,10 @@ const Register = () => {
           <h1 className="font-heading font-bold text-2xl">Create Account</h1>
           <p className="text-neutral-600 text-sm">Join Pizza Saucy today</p>
         </div>
+
+        {errors.general && (
+          <p className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg">{errors.general}</p>
+        )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>

@@ -1,6 +1,7 @@
-import { FiAward, FiUsers, FiHeart, FiTarget, FiEye } from 'react-icons/fi'
+import { FiAward, FiTarget, FiEye } from 'react-icons/fi'
 import SectionTitle from '../components/SectionTitle'
 import MapPlaceholder from '../components/MapPlaceholder'
+import { whyChooseUs } from '../data'
 
 const About = () => {
   return (
@@ -84,30 +85,27 @@ const About = () => {
         </div>
       </section>
 
-      {/* Our Team Placeholder */}
+      {/* Why Choose Us */}
       <section>
         <SectionTitle
-          title="Meet Our Team"
-          subtitle="The passionate people behind every delicious pizza"
+          title="Why Choose Us"
+          subtitle="We take pride in delivering the best food experience to our customers"
         />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { name: 'Marco Rossi', role: 'Head Chef', image: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=300&h=300&fit=crop&crop=face' },
-            { name: 'Lisa Chen', role: 'Sous Chef', image: 'https://images.unsplash.com/photo-1583394293214-28ez9e9c8f75?w=300&h=300&fit=crop&crop=face' },
-            { name: 'James Wilson', role: 'Manager', image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&h=300&fit=crop&crop=face' },
-            { name: 'Anna Garcia', role: 'Pastry Chef', image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&h=300&fit=crop&crop=face' },
-          ].map((member) => (
-            <div key={member.name} className="card group text-center p-6 hover:shadow-lg transition-shadow">
-              <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-4 border-primary-100 group-hover:border-primary-300 transition-colors">
-                <img
-                  src={member.image}
-                  alt={member.name}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+          {whyChooseUs.map((item) => (
+            <div
+              key={item.id}
+              className="group text-center p-6 sm:p-8 rounded-2xl bg-neutral-50 border border-neutral-100 hover:border-primary-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+            >
+              <div className="w-16 h-16 bg-primary-100 rounded-2xl flex items-center justify-center mx-auto mb-5 group-hover:bg-primary-200 transition-colors">
+                <span className="text-3xl">{item.icon}</span>
               </div>
-              <h3 className="font-heading font-semibold text-lg text-neutral-900">{member.name}</h3>
-              <p className="text-primary-600 text-sm font-medium">{member.role}</p>
+              <h3 className="font-heading font-semibold text-lg text-neutral-900 mb-2">
+                {item.title}
+              </h3>
+              <p className="text-neutral-600 text-sm leading-relaxed">
+                {item.description}
+              </p>
             </div>
           ))}
         </div>

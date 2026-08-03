@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiLogIn, FiEye, FiEyeOff } from 'react-icons/fi'
 import { routes } from '../constants/routes'
 
 const Login = () => {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showPassword, setShowPassword] = useState(false)
@@ -27,8 +28,14 @@ const Login = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validate()) {
-      // Login logic placeholder
-      alert('Login successful!')
+      const users = JSON.parse(localStorage.getItem('pizza_saucy_users') || '[]')
+      const user = users.find((u: { email: string; password: string }) => u.email === formData.email && u.password === formData.password)
+      if (user) {
+        localStorage.setItem('pizza_saucy_auth', JSON.stringify({ id: user.id, email: user.email, name: user.name, avatar: user.avatar, role: 'customer' }))
+        navigate(routes.PROFILE)
+      } else {
+        setErrors({ ...errors, general: 'Invalid email or password' })
+      }
     }
   }
 
@@ -39,6 +46,10 @@ const Login = () => {
           <h1 className="font-heading font-bold text-2xl">Welcome Back</h1>
           <p className="text-neutral-600 text-sm">Sign in to your Pizza Saucy account</p>
         </div>
+
+        {errors.general && (
+          <p className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg">{errors.general}</p>
+        )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
@@ -97,11 +108,13 @@ const Login = () => {
           </button>
         </form>
 
-        <div className="text-center text-sm text-neutral-600">
-          Don't have an account?{' '}
-          <Link to={routes.REGISTER} className="text-primary-600 font-medium hover:underline">
-            Sign up
-          </Link>
+        <div className="text-center text-sm text-neutral-600 space-y-2">
+          <p>
+            Don't have an account?{' '}
+            <Link to={routes.REGISTER} className="text-primary-600 font-medium hover:underline">
+              Sign up
+            </Link>
+          </p>
         </div>
       </div>
     </div>

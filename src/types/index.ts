@@ -3,8 +3,12 @@ export interface User {
   email: string
   name: string
   avatar?: string
+  phone?: string
+  address?: string
   role: 'customer' | 'admin'
 }
+
+export type PizzaSize = 'Small' | 'Medium' | 'Large'
 
 export interface CartItem {
   id: string
@@ -12,6 +16,7 @@ export interface CartItem {
   price: number
   quantity: number
   image?: string
+  size?: PizzaSize
 }
 
 export interface MenuItem {
@@ -24,11 +29,36 @@ export interface MenuItem {
   isAvailable: boolean
 }
 
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+
 export interface Order {
   id: string
   items: CartItem[]
   total: number
-  status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled'
+  status: OrderStatus
   createdAt: string
   deliveryAddress?: string
+  customerName?: string
+  customerPhone?: string
+}
+
+export interface Review {
+  id: string
+  name: string
+  email: string
+  review: string
+  rating: number
+  product: string
+  date: string
+  pinned?: boolean
+  avatar?: string
+}
+
+export interface ContactMessage {
+  id: string
+  name: string
+  email: string
+  message: string
+  date: string
+  read: boolean
 }

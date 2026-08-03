@@ -1,85 +1,112 @@
-import { useState } from 'react'
-import { FiStar, FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi'
-
-interface ReviewItem {
-  id: string
-  name: string
-  rating: number
-  review: string
-  date: string
-  product: string
-  visible: boolean
-}
+import { useState, useEffect } from 'react'
+import { FiStar, FiTrash2, FiSearch, FiMessageSquare } from 'react-icons/fi'
+import { BsPinAngle, BsPinAngleFill } from 'react-icons/bs'
+import { formatDateTime } from '../utils/formatters'
+import type { Review } from '../types'
 
 const AdminReviews = () => {
-  const [reviews, setReviews] = useState<ReviewItem[]>([
-    { id: '1', name: 'Sarah Mitchell', rating: 5, review: 'The best pizza I have ever had! Fresh and delicious.', date: '2024-07-15', product: 'Classic Margherita', visible: true },
-    { id: '2', name: 'Michael Chen', rating: 5, review: 'Authentic and consistently amazing quality.', date: '2024-07-18', product: 'Pepperoni Feast', visible: true },
-    { id: '3', name: 'Emily Rodriguez', rating: 4, review: 'Great value for money. Family pack is perfect!', date: '2024-07-20', product: 'BBQ Chicken', visible: true },
-    { id: '4', name: 'David Kim', rating: 3, review: 'Good but delivery was a bit slow this time.', date: '2024-07-22', product: 'Veggie Supreme', visible: false },
-  ])
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [search, setSearch] = useState('')
 
-  const toggleVisible = (id: string) => {
-    setReviews(reviews.map((r) => (r.id === id ? { ...r, visible: !r.visible } : r)))
+  useEffect(() => {
+    const load = () => {
+      const stored = JSON.parse(localStorage.getItem('pizza_saucy_reviews') || '[]')
+      setReviews(stored.sort((a: Review, b: Review) => new Date(b.date).getTime() - new Date(a.date).getTime()))
+    }
+    load()
+    const interval = setInterval(load, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const togglePin = (id: string) => {
+    const updated = reviews.map((r) => r.id === id ? { ...r, pinned: !r.pinned } : r)
+    setReviews(updated)
+    localStorage.setItem('pizza_saucy_reviews', JSON.stringify(updated))
   }
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure?')) setReviews(reviews.filter((r) => r.id !== id))
+  const deleteReview = (id: string) => {
+    const updated = reviews.filter((r) => r.id !== id)
+    setReviews(updated)
+    localStorage.setItem('pizza_saucy_reviews', JSON.stringify(updated))
   }
+
+  const filtered = reviews.filter((r) =>
+    search.trim() === '' ||
+    r.name.toLowerCase().includes(search.toLowerCase()) ||
+    r.product.toLowerCase().includes(search.toLowerCase()) ||
+    r.review.toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
     <div className="space-y-6">
-      <h2 className="font-heading font-semibold text-lg">Reviews ({reviews.length})</h2>
-
-      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-neutral-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Product</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Rating</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase hidden sm:table-cell">Review</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {reviews.map((review) => (
-                <tr key={review.id} className="hover:bg-neutral-50">
-                  <td className="px-4 py-3">
-                    <p className="text-sm font-medium text-neutral-900">{review.name}</p>
-                    <p className="text-xs text-neutral-500">{review.date}</p>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-neutral-600">{review.product}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-0.5">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <FiStar key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'text-primary fill-primary' : 'text-neutral-300'}`} />
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-neutral-600 hidden sm:table-cell max-w-xs truncate">{review.review}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs rounded-full ${review.visible ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'}`}>
-                      {review.visible ? 'Visible' : 'Hidden'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => toggleVisible(review.id)} className="p-1.5 text-neutral-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
-                        {review.visible ? <FiEye className="w-4 h-4" /> : <FiEyeOff className="w-4 h-4" />}
-                      </button>
-                      <button onClick={() => handleDelete(review.id)} className="p-1.5 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <FiTrash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="font-heading font-bold text-2xl text-neutral-900">Reviews</h1>
+        <div className="relative">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search reviews..."
+            className="input pl-9 text-sm py-2"
+          />
         </div>
+      </div>
+
+      <div className="space-y-3">
+        {filtered.map((review) => (
+          <div
+            key={review.id}
+            className={`card p-5 transition-all ${review.pinned ? 'border-l-4 border-l-primary bg-primary-50/30' : ''}`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="font-semibold text-sm text-neutral-900">{review.name}</h3>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <FiStar
+                        key={star}
+                        className={`w-3.5 h-3.5 ${star <= review.rating ? 'text-primary fill-primary' : 'text-neutral-300'}`}
+                      />
+                    ))}
+                  </div>
+                  {review.pinned && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary-100 px-2 py-0.5 rounded-full">
+                      Pinned
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-neutral-500 mb-1">
+                  {review.email} · {review.product} · {formatDateTime(review.date)}
+                </p>
+                <p className="text-sm text-neutral-700 leading-relaxed">{review.review}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => togglePin(review.id)}
+                  className={`p-2 rounded-lg transition-colors ${review.pinned ? 'text-primary bg-primary-100' : 'text-neutral-400 hover:bg-neutral-100'}`}
+                  title={review.pinned ? 'Unpin from homepage' : 'Pin to homepage'}
+                >
+                  {review.pinned ? <BsPinAngleFill className="w-4 h-4" /> : <BsPinAngle className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => deleteReview(review.id)}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete"
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="text-center py-12">
+            <FiMessageSquare className="w-10 h-10 mx-auto mb-3 text-neutral-300" />
+            <p className="text-neutral-500 text-sm">No reviews found</p>
+          </div>
+        )}
       </div>
     </div>
   )

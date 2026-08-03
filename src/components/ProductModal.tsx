@@ -1,15 +1,24 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { FiX, FiStar, FiShoppingCart } from 'react-icons/fi'
 import type { Product } from '../data'
+import type { PizzaSize } from '../types'
 
 interface ProductModalProps {
   product: Product | null
   isOpen: boolean
   onClose: () => void
   onAddToCart?: (product: Product) => void
+  selectedSize?: PizzaSize
+  onSizeSelect?: (size: PizzaSize) => void
 }
 
-const ProductModal = ({ product, isOpen, onClose, onAddToCart }: ProductModalProps) => {
+const ProductModal = ({ product, isOpen, onClose, onAddToCart, selectedSize, onSizeSelect }: ProductModalProps) => {
+  const [localSize, setLocalSize] = useState<PizzaSize | undefined>(selectedSize)
+
+  useEffect(() => {
+    setLocalSize(selectedSize)
+  }, [selectedSize, product])
+
   // Close on Escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -26,6 +35,15 @@ const ProductModal = ({ product, isOpen, onClose, onAddToCart }: ProductModalPro
   }, [isOpen, onClose])
 
   if (!isOpen || !product) return null
+
+  const currentPrice = localSize && product.sizes
+    ? product.sizes.find((s) => s.size === localSize)?.price ?? product.price
+    : product.price
+
+  const handleSizeClick = (size: PizzaSize) => {
+    setLocalSize(size)
+    onSizeSelect?.(size)
+  }
 
   return (
     <div
@@ -81,7 +99,7 @@ const ProductModal = ({ product, isOpen, onClose, onAddToCart }: ProductModalPro
             </div>
             <div className="text-right shrink-0">
               <p className="font-heading font-bold text-2xl text-primary-700">
-                ${product.price.toFixed(2)}
+                Rs {currentPrice}
               </p>
               <div className="flex items-center gap-1 justify-end mt-1">
                 <FiStar className="w-4 h-4 text-primary fill-primary" />
@@ -93,6 +111,31 @@ const ProductModal = ({ product, isOpen, onClose, onAddToCart }: ProductModalPro
           <p className="text-neutral-600 leading-relaxed">
             {product.description}
           </p>
+
+          {/* Size Selector */}
+          {product.sizes && product.sizes.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="font-heading font-semibold text-sm text-neutral-900 uppercase tracking-wider">
+                Select Size
+              </h3>
+              <div className="flex gap-3">
+                {product.sizes.map((s) => (
+                  <button
+                    key={s.size}
+                    onClick={() => handleSizeClick(s.size)}
+                    className={`flex flex-col items-center px-4 py-2.5 rounded-xl border transition-all ${
+                      localSize === s.size || (!localSize && s.size === 'Medium')
+                        ? 'bg-primary text-neutral-900 border-primary shadow-sm'
+                        : 'bg-white text-neutral-600 border-neutral-200 hover:border-primary-300'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold">{s.size}</span>
+                    <span className="text-xs opacity-80">Rs {s.price}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {product.ingredients && product.ingredients.length > 0 && (
             <div className="space-y-2">
@@ -115,6 +158,9 @@ const ProductModal = ({ product, isOpen, onClose, onAddToCart }: ProductModalPro
           <div className="pt-4 flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => {
+                if (localSize && onSizeSelect) {
+                  onSizeSelect(localSize)
+                }
                 onAddToCart?.(product)
                 onClose()
               }}

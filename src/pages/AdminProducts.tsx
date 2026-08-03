@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiCheck, FiImage } from 'react-icons/fi'
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiCheck } from 'react-icons/fi'
 import { menuProducts } from '../data'
 import type { Product } from '../data'
 

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { FiFacebook, FiInstagram, FiPhone, FiMail, FiMapPin } from 'react-icons/fi'
+import { FiFacebook, FiInstagram, FiPhone, FiMail, FiMapPin, FiShield } from 'react-icons/fi'
 import { routes } from '../constants/routes'
 
 // Social URLs - can be changed in admin settings later
@@ -25,7 +25,7 @@ const Footer = () => {
   ]
 
   return (
-    <footer className="bg-neutral-900 text-neutral-300">
+    <footer className="bg-neutral-900 text-neutral-300 relative">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand */}
@@ -135,6 +135,15 @@ const Footer = () => {
           </p>
         </div>
       </div>
+
+      {/* Admin Panel Link - Bottom Right */}
+      <Link
+        to="/admin-login"
+        className="fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 bg-neutral-800/90 backdrop-blur-sm text-neutral-300 text-xs font-medium rounded-full border border-neutral-700 hover:bg-primary hover:text-neutral-900 hover:border-primary transition-all shadow-lg"
+      >
+        <FiShield className="w-3.5 h-3.5" />
+        Admin Panel
+      </Link>
     </footer>
   )
 }

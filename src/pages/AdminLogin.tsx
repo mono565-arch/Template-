@@ -10,7 +10,7 @@ const AdminLogin = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (credentials.username === 'admin' && credentials.password === 'admin123') {
-      localStorage.setItem('adminAuth', 'true')
+      localStorage.setItem('pizza_saucy_admin_auth', 'true')
       navigate('/admin')
     } else {
       setError('Invalid username or password')

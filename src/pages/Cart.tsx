@@ -72,6 +72,7 @@ const Cart = () => {
                     <p className="text-primary-700 font-bold text-sm mt-0.5">
                       {formatCurrency(item.price)}
                     </p>
+                    {item.size && <p className="text-xs text-neutral-500">{item.size}</p>}
                   </div>
 
                   {/* Quantity Controls */}
@@ -126,13 +127,13 @@ const Cart = () => {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-neutral-600">Delivery Fee</span>
-                  <span className="font-medium text-neutral-900">{totalPrice >= 25 ? 'Free' : formatCurrency(3.99)}</span>
+                  <span className="font-medium text-neutral-900">{totalPrice >= 2500 ? 'Free' : `Rs 150.00`}</span>
                 </div>
                 <div className="border-t border-neutral-200 pt-3">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-neutral-900">Total</span>
                     <span className="font-bold text-xl text-primary-700">
-                      {formatCurrency(totalPrice >= 25 ? totalPrice : totalPrice + 3.99)}
+                      {formatCurrency(totalPrice >= 2500 ? totalPrice : totalPrice + 150)}
                     </span>
                   </div>
                 </div>

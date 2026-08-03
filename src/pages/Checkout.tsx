@@ -24,7 +24,7 @@ const Checkout = () => {
   const [couponError, setCouponError] = useState('')
   const [orderPlaced, setOrderPlaced] = useState(false)
 
-  const deliveryFee = totalPrice >= 25 ? 0 : 3.99
+  const deliveryFee = totalPrice >= 2500 ? 0 : 150
 
   const discountAmount = appliedCoupon
     ? appliedCoupon.type === 'percentage'
@@ -63,6 +63,26 @@ const Checkout = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
+      const newOrder = {
+        id: 'ORD-' + Date.now(),
+        items: items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image,
+          size: item.size,
+        })),
+        total: finalTotal,
+        status: 'pending' as const,
+        createdAt: new Date().toISOString(),
+        deliveryAddress: formData.address,
+        customerName: formData.name,
+        customerPhone: formData.phone,
+      }
+      const existingOrders = JSON.parse(localStorage.getItem('pizza_saucy_orders') || '[]')
+      localStorage.setItem('pizza_saucy_orders', JSON.stringify([newOrder, ...existingOrders]))
+
       setOrderPlaced(true)
       clearCart()
     }
@@ -225,7 +245,7 @@ const Checkout = () => {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-neutral-600">Delivery Fee</span>
                 <span className="font-medium text-neutral-900">
-                  {deliveryFee === 0 ? 'Free' : formatCurrency(deliveryFee)}
+                  {deliveryFee === 0 ? 'Free' : `Rs ${deliveryFee.toFixed(2)}`}
                 </span>
               </div>
               {appliedCoupon && (
@@ -276,7 +296,7 @@ const Checkout = () => {
                 </div>
               )}
               {couponError && <p className="text-red-500 text-xs mt-1">{couponError}</p>}
-              <p className="text-neutral-400 text-xs mt-2">Try: SAVE10 or WELCOME5</p>
+              <p className="text-neutral-400 text-xs mt-2">Try: SAVE10 or WELCOME5 (Rs prices)</p>
             </div>
           </div>
         </div>
