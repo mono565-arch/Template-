@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { FiPhone, FiMail, FiMapPin, FiClock, FiSend, FiCheckCircle, FiStar } from 'react-icons/fi'
-import SectionTitle from '../components/SectionTitle'
 import { menuProducts } from '../data'
 import type { Review } from '../types'
 
@@ -340,46 +339,7 @@ const Contact = () => {
         </div>
       )}
 
-      {/* Lahore Map Placeholder */}
-      <section>
-        <SectionTitle
-          title="Find Us in Lahore"
-          subtitle="We are located in the heart of Lahore, Pakistan"
-        />
-        <div className="w-full rounded-2xl overflow-hidden border border-neutral-200 shadow-sm">
-          <div className="h-80 sm:h-96 bg-neutral-100 flex flex-col items-center justify-center gap-4 relative overflow-hidden">
-            {/* Decorative map-like pattern */}
-            <div className="absolute inset-0 opacity-20"
-              style={{
-                backgroundImage: `
-                  linear-gradient(#d1d5db 1px, transparent 1px),
-                  linear-gradient(90deg, #d1d5db 1px, transparent 1px)
-                `,
-                backgroundSize: '40px 40px'
-              }}
-            />
-            {/* Decorative roads */}
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute top-1/2 left-0 right-0 h-3 bg-neutral-400 -translate-y-1/2" />
-              <div className="absolute top-0 bottom-0 left-1/3 w-3 bg-neutral-400 -translate-x-1/2" />
-              <div className="absolute top-0 bottom-0 right-1/3 w-3 bg-neutral-400 translate-x-1/2" />
-            </div>
-            <div className="relative z-10 flex flex-col items-center gap-3 text-center px-4">
-              <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
-                <FiMapPin className="w-8 h-8 text-neutral-900" />
-              </div>
-              <div>
-                <h3 className="font-heading font-semibold text-lg text-neutral-800">Pizza Saucy Lahore</h3>
-                <p className="text-neutral-500 text-sm mt-1">123 Pizza Lane, Gulberg III, Lahore</p>
-                <p className="text-neutral-400 text-xs mt-0.5">Google Maps will be connected here soon</p>
-              </div>
-              <div className="flex items-center gap-2 mt-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-lg">
-                <span className="text-xs text-neutral-600">📍 31.5204° N, 74.3587° E</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+
     </div>
   )
 }
