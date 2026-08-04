@@ -1,9 +1,11 @@
 export const formatCurrency = (amount: number): string => {
-  return `Rs ${amount.toFixed(2)}`
+  if (typeof amount !== 'number' || isNaN(amount)) return 'Rs 0'
+  return `Rs ${Math.round(amount).toLocaleString('en-PK')}`
 }
 
 export const formatDate = (date: string | Date): string => {
   const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return 'Invalid date'
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'long',
@@ -13,6 +15,7 @@ export const formatDate = (date: string | Date): string => {
 
 export const formatDateTime = (date: string | Date): string => {
   const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return 'Invalid date'
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'short',

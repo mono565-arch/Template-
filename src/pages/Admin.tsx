@@ -1,21 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   FiUsers, FiShoppingBag, FiDollarSign, FiPieChart,
   FiBell, FiMessageSquare, FiStar, FiTrendingUp,
-  FiPackage, FiClock, FiCheckCircle, FiXCircle
+  FiPackage, FiClock, FiCheckCircle, FiXCircle,
+  FiTag, FiGrid, FiTruck
 } from 'react-icons/fi'
 import { formatCurrency, formatDateTime } from '../utils/formatters'
+import { getItem, LS_KEYS } from '../utils/localStorage'
+import { getNotifications, markNotificationRead, markAllNotificationsRead, getUnreadCount, getLatestNotifications, getNotificationIcon, type Notification } from '../utils/notifications'
 import type { Order, ContactMessage, Review } from '../types'
-
-interface Notification {
-  id: string
-  type: 'order' | 'message' | 'review'
-  title: string
-  message: string
-  time: string
-  read: boolean
-}
 
 const Admin = () => {
   const [orders, setOrders] = useState<Order[]>([])
@@ -23,66 +17,106 @@ const Admin = () => {
   const [reviews, setReviews] = useState<Review[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [productsCount, setProductsCount] = useState(0)
+  const [categoriesCount, setCategoriesCount] = useState(0)
+  const [couponsCount, setCouponsCount] = useState(0)
+  const notificationRef = useRef<HTMLDivElement>(null)
+
+  const loadData = useCallback(() => {
+    const storedOrders = getItem<Order[]>(LS_KEYS.ORDERS, [])
+    const storedMessages = getItem<ContactMessage[]>(LS_KEYS.MESSAGES, [])
+    const storedReviews = getItem<Review[]>(LS_KEYS.REVIEWS, [])
+    const storedProducts = getItem<{ id: string }[]>(LS_KEYS.PRODUCTS, [])
+    const storedCategories = getItem<{ id: string }[]>(LS_KEYS.CATEGORIES, [])
+    const storedCoupons = getItem<{ id: string }[]>(LS_KEYS.COUPONS, [])
+
+    setOrders(storedOrders)
+    setMessages(storedMessages)
+    setReviews(storedReviews)
+    setProductsCount(storedProducts.length)
+    setCategoriesCount(storedCategories.length)
+    setCouponsCount(storedCoupons.length)
+
+    const notifs = getNotifications()
+    setNotifications(notifs)
+    setUnreadCount(getUnreadCount())
+  }, [])
 
   useEffect(() => {
-    const loadData = () => {
-      const storedOrders = JSON.parse(localStorage.getItem('pizza_saucy_orders') || '[]')
-      const storedMessages = JSON.parse(localStorage.getItem('pizza_saucy_messages') || '[]')
-      const storedReviews = JSON.parse(localStorage.getItem('pizza_saucy_reviews') || '[]')
-      setOrders(storedOrders)
-      setMessages(storedMessages)
-      setReviews(storedReviews)
-
-      // Build notifications
-      const notifs: Notification[] = []
-      storedOrders.slice(0, 5).forEach((o: Order) => {
-        notifs.push({
-          id: `ord-${o.id}`,
-          type: 'order',
-          title: 'New Order',
-          message: `${o.id} - ${formatCurrency(o.total)}`,
-          time: o.createdAt,
-          read: false,
-        })
-      })
-      storedMessages.filter((m: ContactMessage) => !m.read).slice(0, 5).forEach((m: ContactMessage) => {
-        notifs.push({
-          id: `msg-${m.id}`,
-          type: 'message',
-          title: 'New Message',
-          message: `From ${m.name}`,
-          time: m.date,
-          read: false,
-        })
-      })
-      storedReviews.slice(0, 3).forEach((r: Review) => {
-        notifs.push({
-          id: `rev-${r.id}`,
-          type: 'review',
-          title: 'New Review',
-          message: `${r.rating} stars from ${r.name}`,
-          time: r.date,
-          read: false,
-        })
-      })
-      setNotifications(notifs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()))
-    }
     loadData()
     const interval = setInterval(loadData, 3000)
     return () => clearInterval(interval)
-  }, [])
+  }, [loadData])
 
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0)
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(e.target as Node)) {
+        setShowNotifications(false)
+      }
+    }
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showNotifications])
+
+  // Close dropdown on Escape key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowNotifications(false)
+    }
+    if (showNotifications) {
+      document.addEventListener('keydown', handleEsc)
+    }
+    return () => document.removeEventListener('keydown', handleEsc)
+  }, [showNotifications])
+
+  const totalRevenue = orders.reduce((sum, o) => sum + (typeof o.total === 'number' ? o.total : 0), 0)
   const pendingOrders = orders.filter((o) => o.status === 'pending').length
+  const completedOrders = orders.filter((o) => o.status === 'completed').length
   const unreadMessages = messages.filter((m) => !m.read).length
 
   const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-    const msgs = JSON.parse(localStorage.getItem('pizza_saucy_messages') || '[]')
-    localStorage.setItem('pizza_saucy_messages', JSON.stringify(msgs.map((m: ContactMessage) => ({ ...m, read: true }))))
+    markAllNotificationsRead()
+    setNotifications(getNotifications())
+    setUnreadCount(0)
   }
 
-  const unreadCount = notifications.filter((n) => !n.read).length
+  const handleNotificationClick = (notif: Notification) => {
+    markNotificationRead(notif.id)
+    setNotifications(getNotifications())
+    setUnreadCount(getUnreadCount())
+    if (notif.link) {
+      window.location.href = notif.link
+    }
+  }
+
+  const latestNotifications = getLatestNotifications(5)
+
+  const getNotificationLink = (type: Notification['type']) => {
+    switch (type) {
+      case 'order':
+      case 'order_cancelled':
+        return '/admin/orders'
+      case 'review':
+        return '/admin/reviews'
+      case 'message':
+        return '/admin/messages'
+      case 'coupon':
+        return '/admin/coupons'
+      case 'product_added':
+      case 'product_updated':
+      case 'product_deleted':
+        return '/admin/products'
+      case 'category_added':
+      case 'category_deleted':
+        return '/admin/categories'
+      default:
+        return '/admin'
+    }
+  }
 
   return (
     <div className="space-y-8 lg:space-y-12">
@@ -103,7 +137,7 @@ const Admin = () => {
               Real-time overview of your restaurant performance.
             </p>
           </div>
-          <div className="relative">
+          <div className="relative" ref={notificationRef}>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative p-3 bg-neutral-800 rounded-xl text-neutral-300 hover:text-primary hover:bg-neutral-700 transition-colors"
@@ -111,52 +145,44 @@ const Admin = () => {
               <FiBell className="w-5 h-5" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {unreadCount}
+                  {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}
             </button>
             {showNotifications && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setShowNotifications(false)} />
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border border-neutral-200 z-40 overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100">
-                    <h3 className="font-semibold text-sm text-neutral-900">Notifications</h3>
-                    <button onClick={markAllRead} className="text-xs text-primary-600 hover:underline">
-                      Mark all read
-                    </button>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <p className="text-sm text-neutral-500 text-center py-6">No notifications</p>
-                    ) : (
-                      notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`flex items-start gap-3 px-4 py-3 border-b border-neutral-50 hover:bg-neutral-50 transition-colors ${
-                            !n.read ? 'bg-primary-50/30' : ''
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                            n.type === 'order' ? 'bg-blue-100 text-blue-600' :
-                            n.type === 'message' ? 'bg-green-100 text-green-600' :
-                            'bg-yellow-100 text-yellow-600'
-                          }`}>
-                            {n.type === 'order' ? <FiShoppingBag className="w-4 h-4" /> :
-                             n.type === 'message' ? <FiMessageSquare className="w-4 h-4" /> :
-                             <FiStar className="w-4 h-4" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-neutral-900">{n.title}</p>
-                            <p className="text-xs text-neutral-500 truncate">{n.message}</p>
-                            <p className="text-[10px] text-neutral-400 mt-0.5">{formatDateTime(n.time)}</p>
-                          </div>
-                          {!n.read && <div className="w-2 h-2 bg-primary rounded-full shrink-0 mt-1" />}
-                        </div>
-                      ))
-                    )}
-                  </div>
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-2xl border border-neutral-200 z-50 overflow-hidden max-h-[70vh] flex flex-col">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100 shrink-0">
+                  <h3 className="font-semibold text-sm text-neutral-900">Notifications</h3>
+                  <button onClick={markAllRead} className="text-xs text-primary-600 hover:underline">
+                    Mark all read
+                  </button>
                 </div>
-              </>
+                <div className="overflow-y-auto flex-1">
+                  {notifications.length === 0 ? (
+                    <p className="text-sm text-neutral-500 text-center py-6">No notifications</p>
+                  ) : (
+                    notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className={`flex items-start gap-3 px-4 py-3 border-b border-neutral-50 hover:bg-neutral-50 transition-colors cursor-pointer ${
+                          !n.read ? 'bg-primary-50/30' : ''
+                        }`}
+                      >
+                        <div className="shrink-0 text-lg">
+                          {getNotificationIcon(n.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-neutral-900">{n.title}</p>
+                          <p className="text-xs text-neutral-500 truncate">{n.message}</p>
+                          <p className="text-[10px] text-neutral-400 mt-0.5">{formatDateTime(n.time)}</p>
+                        </div>
+                        {!n.read && <div className="w-2 h-2 bg-primary rounded-full shrink-0 mt-1" />}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -191,6 +217,52 @@ const Admin = () => {
           </div>
           <p className="text-sm text-neutral-600">Pending Orders</p>
           <p className="font-heading font-bold text-2xl text-neutral-900">{pendingOrders}</p>
+        </div>
+      </div>
+
+      {/* Extended Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="card p-4 space-y-2 border-l-4 border-l-green-500">
+          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+            <FiCheckCircle className="w-5 h-5 text-green-600" />
+          </div>
+          <p className="text-xs text-neutral-600">Completed</p>
+          <p className="font-heading font-bold text-xl text-neutral-900">{completedOrders}</p>
+        </div>
+        <div className="card p-4 space-y-2 border-l-4 border-l-yellow-500">
+          <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+            <FiMessageSquare className="w-5 h-5 text-yellow-600" />
+          </div>
+          <p className="text-xs text-neutral-600">Messages</p>
+          <p className="font-heading font-bold text-xl text-neutral-900">{messages.length}</p>
+        </div>
+        <div className="card p-4 space-y-2 border-l-4 border-l-orange-500">
+          <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+            <FiTag className="w-5 h-5 text-orange-600" />
+          </div>
+          <p className="text-xs text-neutral-600">Coupons</p>
+          <p className="font-heading font-bold text-xl text-neutral-900">{couponsCount}</p>
+        </div>
+        <div className="card p-4 space-y-2 border-l-4 border-l-pink-500">
+          <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
+            <FiPackage className="w-5 h-5 text-pink-600" />
+          </div>
+          <p className="text-xs text-neutral-600">Products</p>
+          <p className="font-heading font-bold text-xl text-neutral-900">{productsCount}</p>
+        </div>
+        <div className="card p-4 space-y-2 border-l-4 border-l-indigo-500">
+          <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+            <FiGrid className="w-5 h-5 text-indigo-600" />
+          </div>
+          <p className="text-xs text-neutral-600">Categories</p>
+          <p className="font-heading font-bold text-xl text-neutral-900">{categoriesCount}</p>
+        </div>
+        <div className="card p-4 space-y-2 border-l-4 border-l-teal-500">
+          <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
+            <FiTruck className="w-5 h-5 text-teal-600" />
+          </div>
+          <p className="text-xs text-neutral-600">Free Delivery</p>
+          <p className="font-heading font-bold text-xl text-neutral-900">Rs 2500+</p>
         </div>
       </div>
 
@@ -229,6 +301,37 @@ const Admin = () => {
             </div>
           </div>
         </Link>
+      </div>
+
+      {/* Recent Notifications Card */}
+      <div className="card overflow-hidden">
+        <div className="px-6 py-4 border-b border-neutral-200 flex items-center justify-between">
+          <h2 className="font-heading font-semibold text-lg text-neutral-900">Recent Notifications</h2>
+          <Link to="/admin" className="text-sm text-primary-600 hover:underline">View All</Link>
+        </div>
+        <div className="divide-y divide-neutral-100">
+          {latestNotifications.length === 0 ? (
+            <p className="text-sm text-neutral-500 text-center py-6">No notifications yet</p>
+          ) : (
+            latestNotifications.map((n) => (
+              <Link
+                key={n.id}
+                to={n.link || getNotificationLink(n.type)}
+                className={`flex items-start gap-3 px-6 py-3 hover:bg-neutral-50 transition-colors ${
+                  !n.read ? 'bg-primary-50/30' : ''
+                }`}
+              >
+                <div className="shrink-0 text-lg">{getNotificationIcon(n.type)}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-neutral-900">{n.title}</p>
+                  <p className="text-xs text-neutral-500 truncate">{n.message}</p>
+                </div>
+                <p className="text-[10px] text-neutral-400 shrink-0">{formatDateTime(n.time)}</p>
+                {!n.read && <div className="w-2 h-2 bg-primary rounded-full shrink-0 mt-1" />}
+              </Link>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Recent Orders */}

@@ -1,12 +1,20 @@
 import { useState } from 'react'
 import { FiPhone, FiMail, FiMapPin, FiClock, FiSend, FiCheckCircle, FiStar } from 'react-icons/fi'
-import { menuProducts } from '../data'
+import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
+import { addNotification } from '../utils/notifications'
 import type { Review } from '../types'
 
 const Contact = () => {
   const [submitted, setSubmitted] = useState(false)
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
   const [activeTab, setActiveTab] = useState<'contact' | 'review'>('contact')
+
+  const [contactForm, setContactForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    message: '',
+  })
 
   const [reviewForm, setReviewForm] = useState({
     name: '',
@@ -20,7 +28,26 @@ const Contact = () => {
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const newMessage = {
+      id: 'msg-' + Date.now(),
+      name: contactForm.name || 'Anonymous',
+      email: contactForm.email || '',
+      message: contactForm.message,
+      date: new Date().toISOString(),
+      read: false,
+    }
+    const existing = getItem<typeof newMessage[]>(LS_KEYS.MESSAGES, [])
+    setItem(LS_KEYS.MESSAGES, [newMessage, ...existing])
+
+    addNotification({
+      type: 'message',
+      title: 'New Message',
+      message: `From ${newMessage.name}`,
+      link: '/admin/messages',
+    })
+
     setSubmitted(true)
+    setContactForm({ name: '', email: '', phone: '', message: '' })
     setTimeout(() => setSubmitted(false), 3000)
   }
 
@@ -50,19 +77,15 @@ const Contact = () => {
         product: reviewForm.product,
         date: new Date().toISOString(),
       }
-      const existing = JSON.parse(localStorage.getItem('pizza_saucy_reviews') || '[]')
-      localStorage.setItem('pizza_saucy_reviews', JSON.stringify([newReview, ...existing]))
+      const existing = getItem<Review[]>(LS_KEYS.REVIEWS, [])
+      setItem(LS_KEYS.REVIEWS, [newReview, ...existing])
 
-      const messages = JSON.parse(localStorage.getItem('pizza_saucy_messages') || '[]')
-      messages.push({
-        id: 'msg-' + Date.now(),
-        name: reviewForm.name,
-        email: reviewForm.email,
-        message: `Review for ${reviewForm.product}: ${reviewForm.message}`,
-        date: new Date().toISOString(),
-        read: false,
+      addNotification({
+        type: 'review',
+        title: 'New Review',
+        message: `${reviewForm.rating} stars from ${reviewForm.name}`,
+        link: '/admin/reviews',
       })
-      localStorage.setItem('pizza_saucy_messages', JSON.stringify(messages))
 
       setReviewSubmitted(true)
       setReviewForm({ name: '', email: '', message: '', rating: 5, product: '' })
@@ -70,7 +93,10 @@ const Contact = () => {
     }
   }
 
-  const productOptions = menuProducts.map((p) => p.name)
+  const productOptions = (() => {
+    const stored = getItem<{ name: string }[]>(LS_KEYS.PRODUCTS, [])
+    return stored.map((p) => p.name)
+  })()
 
   return (
     <div className="space-y-16 lg:space-y-24">
@@ -161,56 +187,82 @@ const Contact = () => {
           <div className="lg:col-span-3">
             <div className="card p-6 lg:p-8 space-y-6">
               <h2 className="font-heading font-semibold text-xl text-neutral-900">Send a Message</h2>
-              <form onSubmit={handleContactSubmit} className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label htmlFor="contact-name" className="block text-sm font-medium text-neutral-700 mb-1.5">
-                      Full Name
-                    </label>
-                    <input type="text" id="contact-name" className="input" placeholder="John Doe" required />
+              {submitted ? (
+                <div className="text-center py-8 space-y-4">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                    <FiCheckCircle className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="font-heading font-semibold text-lg text-neutral-900">Message Sent!</h3>
+                  <p className="text-neutral-600 text-sm">We will get back to you as soon as possible.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleContactSubmit} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div>
+                      <label htmlFor="contact-name" className="block text-sm font-medium text-neutral-700 mb-1.5">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        id="contact-name"
+                        value={contactForm.name}
+                        onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                        className="input"
+                        placeholder="John Doe"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="contact-email" className="block text-sm font-medium text-neutral-700 mb-1.5">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        id="contact-email"
+                        value={contactForm.email}
+                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                        className="input"
+                        placeholder="john@example.com"
+                        required
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label htmlFor="contact-email" className="block text-sm font-medium text-neutral-700 mb-1.5">
-                      Email Address
+                    <label htmlFor="contact-phone" className="block text-sm font-medium text-neutral-700 mb-1.5">
+                      Phone Number
                     </label>
-                    <input type="email" id="contact-email" className="input" placeholder="john@example.com" required />
+                    <input
+                      type="tel"
+                      id="contact-phone"
+                      value={contactForm.phone}
+                      onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                      className="input"
+                      placeholder="+92 300 1234567"
+                    />
                   </div>
-                </div>
-                <div>
-                  <label htmlFor="contact-phone" className="block text-sm font-medium text-neutral-700 mb-1.5">
-                    Phone Number
-                  </label>
-                  <input type="tel" id="contact-phone" className="input" placeholder="+92 300 1234567" />
-                </div>
-                <div>
-                  <label htmlFor="contact-message" className="block text-sm font-medium text-neutral-700 mb-1.5">
-                    Message
-                  </label>
-                  <textarea
-                    id="contact-message"
-                    rows={5}
-                    className="input resize-none"
-                    placeholder="Tell us what's on your mind..."
-                    required
-                  ></textarea>
-                </div>
-                <button
-                  type="submit"
-                  className="btn-primary w-full"
-                >
-                  {submitted ? (
-                    <>
-                      <FiCheckCircle className="w-4 h-4" />
-                      Message Sent!
-                    </>
-                  ) : (
-                    <>
-                      <FiSend className="w-4 h-4" />
-                      Send Message
-                    </>
-                  )}
-                </button>
-              </form>
+                  <div>
+                    <label htmlFor="contact-message" className="block text-sm font-medium text-neutral-700 mb-1.5">
+                      Message
+                    </label>
+                    <textarea
+                      id="contact-message"
+                      rows={5}
+                      value={contactForm.message}
+                      onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                      className="input resize-none"
+                      placeholder="Tell us what's on your mind..."
+                      required
+                    ></textarea>
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn-primary w-full"
+                  >
+                    <FiSend className="w-4 h-4" />
+                    Send Message
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </div>
@@ -280,7 +332,7 @@ const Contact = () => {
                     className={`input ${reviewErrors.product ? 'border-red-400 focus:ring-red-400' : ''}`}
                   >
                     <option value="">Select a product...</option>
-                    {productOptions.map((p) => (
+                    {productOptions.map((p: string) => (
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
@@ -338,8 +390,6 @@ const Contact = () => {
           </div>
         </div>
       )}
-
-
     </div>
   )
 }

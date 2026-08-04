@@ -4,11 +4,18 @@ import { FiArrowLeft, FiCheckCircle, FiTag, FiX, FiTruck, FiMapPin, FiPhone, FiU
 import { routes } from '../constants/routes'
 import { useCartContext } from '../context/CartContext'
 import { formatCurrency } from '../utils/formatters'
+import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
+import { generateOrderNumber } from '../utils/orders'
+import { addNotification } from '../utils/notifications'
 
-const coupons = [
-  { code: 'SAVE10', discount: 0.10, type: 'percentage' as const },
-  { code: 'WELCOME5', discount: 5, type: 'fixed' as const },
-]
+interface Coupon {
+  id: string
+  code: string
+  discount: number
+  type: 'percentage' | 'fixed'
+  minOrder: number
+  enabled: boolean
+}
 
 const Checkout = () => {
   const { items, totalPrice, clearCart } = useCartContext()
@@ -20,15 +27,16 @@ const Checkout = () => {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [couponCode, setCouponCode] = useState('')
-  const [appliedCoupon, setAppliedCoupon] = useState<typeof coupons[0] | null>(null)
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null)
   const [couponError, setCouponError] = useState('')
   const [orderPlaced, setOrderPlaced] = useState(false)
+  const [orderNumber, setOrderNumber] = useState('')
 
   const deliveryFee = totalPrice >= 2500 ? 0 : 150
 
   const discountAmount = appliedCoupon
     ? appliedCoupon.type === 'percentage'
-      ? totalPrice * appliedCoupon.discount
+      ? totalPrice * (appliedCoupon.discount / 100)
       : Math.min(appliedCoupon.discount, totalPrice)
     : 0
 
@@ -46,12 +54,25 @@ const Checkout = () => {
 
   const handleApplyCoupon = () => {
     setCouponError('')
-    const coupon = coupons.find((c) => c.code.toLowerCase() === couponCode.trim().toLowerCase())
+    const storedCoupons = getItem<Coupon[]>(LS_KEYS.COUPONS, [])
+    const coupon = storedCoupons.find(
+      (c) => c.code.toLowerCase() === couponCode.trim().toLowerCase() && c.enabled
+    )
     if (coupon) {
+      if (totalPrice < coupon.minOrder) {
+        setCouponError(`Minimum order of ${formatCurrency(coupon.minOrder)} required`)
+        return
+      }
       setAppliedCoupon(coupon)
       setCouponCode('')
+      addNotification({
+        type: 'coupon',
+        title: 'Coupon Used',
+        message: `${coupon.code} applied to order`,
+        link: '/admin/coupons',
+      })
     } else {
-      setCouponError('Invalid coupon code')
+      setCouponError('Invalid or expired coupon code')
     }
   }
 
@@ -63,8 +84,10 @@ const Checkout = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
+      const newOrderNumber = generateOrderNumber()
+      setOrderNumber(newOrderNumber)
       const newOrder = {
-        id: 'ORD-' + Date.now(),
+        id: newOrderNumber,
         items: items.map((item) => ({
           id: item.id,
           name: item.name,
@@ -80,8 +103,15 @@ const Checkout = () => {
         customerName: formData.name,
         customerPhone: formData.phone,
       }
-      const existingOrders = JSON.parse(localStorage.getItem('pizza_saucy_orders') || '[]')
-      localStorage.setItem('pizza_saucy_orders', JSON.stringify([newOrder, ...existingOrders]))
+      const existingOrders = getItem<typeof newOrder[]>(LS_KEYS.ORDERS, [])
+      setItem(LS_KEYS.ORDERS, [newOrder, ...existingOrders])
+
+      addNotification({
+        type: 'order',
+        title: 'New Order',
+        message: `${newOrderNumber} - ${formatCurrency(finalTotal)}`,
+        link: '/admin/orders',
+      })
 
       setOrderPlaced(true)
       clearCart()
@@ -95,6 +125,7 @@ const Checkout = () => {
           <FiCheckCircle className="w-10 h-10 text-green-600" />
         </div>
         <h2 className="font-heading font-bold text-2xl text-neutral-900">Order Placed Successfully!</h2>
+        <p className="text-neutral-600 text-lg font-medium">Order Number: <span className="text-primary-700 font-bold">{orderNumber}</span></p>
         <p className="text-neutral-600 max-w-md">
           Thank you for your order. We will contact you shortly to confirm your delivery.
         </p>
@@ -245,7 +276,7 @@ const Checkout = () => {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-neutral-600">Delivery Fee</span>
                 <span className="font-medium text-neutral-900">
-                  {deliveryFee === 0 ? 'Free' : `Rs ${deliveryFee.toFixed(2)}`}
+                  {deliveryFee === 0 ? 'Free' : formatCurrency(deliveryFee)}
                 </span>
               </div>
               {appliedCoupon && (
@@ -296,7 +327,7 @@ const Checkout = () => {
                 </div>
               )}
               {couponError && <p className="text-red-500 text-xs mt-1">{couponError}</p>}
-              <p className="text-neutral-400 text-xs mt-2">Try: SAVE10 or WELCOME5 (Rs prices)</p>
+              <p className="text-neutral-400 text-xs mt-2">Try: SAVE10 or WELCOME5</p>
             </div>
           </div>
         </div>

@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FiSearch, FiShoppingCart, FiEye, FiStar, FiFilter, FiX } from 'react-icons/fi'
-// SectionTitle removed - not used in this page
 import ProductModal from '../components/ProductModal'
 import { useCartContext } from '../context/CartContext'
-import { menuCategories, menuProducts } from '../data'
+import { formatCurrency } from '../utils/formatters'
+import { LS_KEYS, getItem } from '../utils/localStorage'
+import { getCategoryNamesWithAll } from '../utils/categories'
 import type { Product } from '../data'
 import type { PizzaSize } from '../types'
 
@@ -18,13 +19,25 @@ const Menu = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [selectedSizes, setSelectedSizes] = useState<Record<string, PizzaSize>>({})
+  const [menuCategories, setMenuCategories] = useState<string[]>(['All'])
+  const [menuProducts, setMenuProducts] = useState<Product[]>([])
   const { addItem } = useCartContext()
+
+  useEffect(() => {
+    const cats = getCategoryNamesWithAll()
+    setMenuCategories(cats)
+  }, [])
+
+  useEffect(() => {
+    const stored = getItem<Product[]>(LS_KEYS.PRODUCTS, [])
+    setMenuProducts(stored)
+  }, [])
 
   useEffect(() => {
     if (categoryParam && menuCategories.includes(categoryParam)) {
       setActiveCategory(categoryParam)
     }
-  }, [categoryParam])
+  }, [categoryParam, menuCategories])
 
   const handleCategoryChange = (category: string) => {
     setActiveCategory(category)
@@ -36,7 +49,6 @@ const Menu = () => {
     setSearchParams(searchParams)
   }
 
-  // Filter products by category and search
   const filteredProducts = useMemo(() => {
     return menuProducts.filter((product) => {
       const matchesCategory = activeCategory === 'All' || product.category === activeCategory
@@ -47,9 +59,8 @@ const Menu = () => {
         product.category.toLowerCase().includes(searchQuery.toLowerCase())
       return matchesCategory && matchesSearch
     })
-  }, [activeCategory, searchQuery])
+  }, [activeCategory, searchQuery, menuProducts])
 
-  // Count products per category
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = { All: menuProducts.length }
     menuCategories.forEach((cat) => {
@@ -58,7 +69,7 @@ const Menu = () => {
       }
     })
     return counts
-  }, [])
+  }, [menuProducts, menuCategories])
 
   const openModal = (product: Product) => {
     setSelectedProduct(product)
@@ -266,7 +277,7 @@ const Menu = () => {
                     </h3>
                   </div>
                   <span className="text-primary-700 font-bold text-lg shrink-0">
-                    Rs {getProductPrice(product)}
+                    {formatCurrency(getProductPrice(product))}
                   </span>
                 </div>
                 <p className="text-neutral-500 text-sm line-clamp-2 mb-4 flex-1">

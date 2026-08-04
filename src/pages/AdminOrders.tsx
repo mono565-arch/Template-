@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { FiPackage, FiClock, FiCheckCircle, FiTruck, FiXCircle, FiSearch, FiRefreshCw } from 'react-icons/fi'
 import { formatCurrency, formatDateTime } from '../utils/formatters'
+import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
+import { addNotification } from '../utils/notifications'
 import type { Order, OrderStatus } from '../types'
 
 const orderStatuses: OrderStatus[] = ['pending', 'preparing', 'ready', 'completed', 'cancelled']
@@ -13,7 +15,6 @@ const statusConfig: Record<OrderStatus, { label: string; icon: typeof FiClock; s
   cancelled: { label: 'Cancelled', icon: FiXCircle, style: 'bg-red-100 text-red-700' },
 }
 
-/** Fallback for orders with missing/invalid status */
 const defaultStatusConfig = {
   label: 'Unknown',
   icon: FiPackage,
@@ -29,30 +30,21 @@ const AdminOrders = () => {
   useEffect(() => {
     const load = () => {
       try {
-        const storedRaw = localStorage.getItem('pizza_saucy_orders')
-        const stored = storedRaw ? JSON.parse(storedRaw) : []
-
-        if (!Array.isArray(stored)) {
-          setOrders([])
-          setIsLoading(false)
-          return
-        }
-
+        const stored = getItem<Order[]>(LS_KEYS.ORDERS, [])
         const validOrders = stored
-          .filter((o: unknown): o is Order => {
+          .filter((o): o is Order => {
             return (
               o !== null &&
               typeof o === 'object' &&
               'id' in o &&
-              typeof (o as Record<string, unknown>).id === 'string'
+              typeof (o as unknown as Record<string, unknown>).id === 'string'
             )
           })
-          .sort((a: Order, b: Order) => {
+          .sort((a, b) => {
             const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
             const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
             return dateB - dateA
           })
-
         setOrders(validOrders)
       } catch {
         setOrders([])
@@ -60,16 +52,25 @@ const AdminOrders = () => {
         setIsLoading(false)
       }
     }
-
     load()
     const interval = setInterval(load, 2000)
     return () => clearInterval(interval)
   }, [])
 
   const updateStatus = (orderId: string, newStatus: OrderStatus) => {
+    const order = orders.find((o) => o.id === orderId)
     const updated = orders.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     setOrders(updated)
-    localStorage.setItem('pizza_saucy_orders', JSON.stringify(updated))
+    setItem(LS_KEYS.ORDERS, updated)
+
+    if (newStatus === 'cancelled' && order) {
+      addNotification({
+        type: 'order_cancelled',
+        title: 'Order Cancelled',
+        message: `${orderId} has been cancelled`,
+        link: '/admin/orders',
+      })
+    }
   }
 
   const getStatusConfig = (status: string | undefined) => {
@@ -84,7 +85,8 @@ const AdminOrders = () => {
     const matchesSearch =
       searchTerm === '' ||
       o.id.toLowerCase().includes(searchTerm) ||
-      (o.customerName?.toLowerCase() || '').includes(searchTerm)
+      (o.customerName?.toLowerCase() || '').includes(searchTerm) ||
+      (o.customerPhone?.toLowerCase() || '').includes(searchTerm)
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter
     return matchesSearch && matchesStatus
   })
@@ -101,15 +103,15 @@ const AdminOrders = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="font-heading font-bold text-2xl text-neutral-900">Orders</h1>
-        <div className="flex gap-2">
-          <div className="relative">
+        <div className="flex gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search orders..."
-              className="input pl-9 text-sm py-2"
+              placeholder="Search by order #, name, phone..."
+              className="input pl-9 text-sm py-2 w-full sm:w-64"
             />
           </div>
           <select
@@ -130,7 +132,7 @@ const AdminOrders = () => {
           <table className="w-full">
             <thead className="bg-neutral-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Order ID</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Order #</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Items</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Total</th>
@@ -148,8 +150,13 @@ const AdminOrders = () => {
 
                 return (
                   <tr key={order.id} className="hover:bg-neutral-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-neutral-900">{order.id}</td>
-                    <td className="px-4 py-3 text-sm text-neutral-600">{order.customerName || 'Guest'}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-primary-700">{order.id}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-600">
+                      <div>
+                        <p>{order.customerName || 'Guest'}</p>
+                        {order.customerPhone && <p className="text-xs text-neutral-400">{order.customerPhone}</p>}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-sm text-neutral-600">{itemCount}</td>
                     <td className="px-4 py-3 text-sm font-bold text-neutral-900">{formatCurrency(orderTotal)}</td>
                     <td className="px-4 py-3">

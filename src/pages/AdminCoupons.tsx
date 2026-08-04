@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiToggleLeft, FiToggleRight } from 'react-icons/fi'
+import { useState, useEffect } from 'react'
+import { FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiTag, FiPercent } from 'react-icons/fi'
+import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
+import { formatCurrency } from '../utils/formatters'
 
 interface Coupon {
   id: string
@@ -11,27 +13,32 @@ interface Coupon {
 }
 
 const AdminCoupons = () => {
-  const [coupons, setCoupons] = useState<Coupon[]>([
-    { id: '1', code: 'SAVE10', discount: 10, type: 'percentage', minOrder: 20, enabled: true },
-    { id: '2', code: 'WELCOME5', discount: 5, type: 'fixed', minOrder: 15, enabled: true },
-    { id: '3', code: 'SUMMER20', discount: 20, type: 'percentage', minOrder: 50, enabled: false },
-  ])
+  const [coupons, setCoupons] = useState<Coupon[]>(() => {
+    const stored = getItem<Coupon[]>(LS_KEYS.COUPONS, [])
+    if (stored.length === 0) {
+      const defaults: Coupon[] = [
+        { id: '1', code: 'SAVE10', discount: 10, type: 'percentage', minOrder: 1000, enabled: true },
+        { id: '2', code: 'WELCOME5', discount: 5, type: 'fixed', minOrder: 500, enabled: true },
+      ]
+      setItem(LS_KEYS.COUPONS, defaults)
+      return defaults
+    }
+    return stored
+  })
 
   const [showModal, setShowModal] = useState(false)
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null)
-  const [formData, setFormData] = useState<{
-    code: string
-    discount: number
-    type: 'percentage' | 'fixed'
-    minOrder: number
-    enabled: boolean
-  }>({
+  const [formData, setFormData] = useState({
     code: '',
     discount: 0,
-    type: 'percentage',
+    type: 'percentage' as 'percentage' | 'fixed',
     minOrder: 0,
     enabled: true,
   })
+
+  useEffect(() => {
+    setItem(LS_KEYS.COUPONS, coupons)
+  }, [coupons])
 
   const openAddModal = () => {
     setEditingCoupon(null)
@@ -41,26 +48,31 @@ const AdminCoupons = () => {
 
   const openEditModal = (coupon: Coupon) => {
     setEditingCoupon(coupon)
-    setFormData({ ...coupon })
+    setFormData({ code: coupon.code, discount: coupon.discount, type: coupon.type, minOrder: coupon.minOrder, enabled: coupon.enabled })
     setShowModal(true)
   }
 
   const handleSave = () => {
     if (!formData.code.trim()) return
     if (editingCoupon) {
-      setCoupons(coupons.map((c) => (c.id === editingCoupon.id ? { ...c, ...formData } : c)))
+      const updated = coupons.map((c) => (c.id === editingCoupon.id ? { ...c, ...formData } : c))
+      setCoupons(updated)
     } else {
-      setCoupons([...coupons, { id: 'new-' + Date.now(), ...formData }])
+      const newCoupon: Coupon = { id: 'coup-' + Date.now(), ...formData }
+      setCoupons([...coupons, newCoupon])
     }
     setShowModal(false)
   }
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure?')) setCoupons(coupons.filter((c) => c.id !== id))
+    if (confirm('Are you sure?')) {
+      setCoupons(coupons.filter((c) => c.id !== id))
+    }
   }
 
   const toggleEnabled = (id: string) => {
-    setCoupons(coupons.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c)))
+    const updated = coupons.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c))
+    setCoupons(updated)
   }
 
   return (
@@ -87,18 +99,28 @@ const AdminCoupons = () => {
             <tbody className="divide-y divide-neutral-200">
               {coupons.map((coupon) => (
                 <tr key={coupon.id} className="hover:bg-neutral-50">
-                  <td className="px-4 py-3 text-sm font-medium text-neutral-900">{coupon.code}</td>
-                  <td className="px-4 py-3 text-sm text-neutral-600">
-                    {coupon.type === 'percentage' ? `${coupon.discount}%` : `$${coupon.discount.toFixed(2)}`}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-neutral-600">${coupon.minOrder.toFixed(2)}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => toggleEnabled(coupon.id)} className="text-sm">
-                      {coupon.enabled ? (
-                        <FiToggleRight className="w-6 h-6 text-green-500" />
-                      ) : (
-                        <FiToggleLeft className="w-6 h-6 text-neutral-400" />
-                      )}
+                    <div className="flex items-center gap-2">
+                      <FiTag className="w-4 h-4 text-primary-600" />
+                      <span className="text-sm font-semibold text-neutral-900">{coupon.code}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-neutral-600">
+                    {coupon.type === 'percentage' ? (
+                      <span className="flex items-center gap-1"><FiPercent className="w-3.5 h-3.5" />{coupon.discount}%</span>
+                    ) : (
+                      formatCurrency(coupon.discount)
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-neutral-600">{formatCurrency(coupon.minOrder)}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => toggleEnabled(coupon.id)}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                        coupon.enabled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {coupon.enabled ? 'Active' : 'Inactive'}
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -126,7 +148,7 @@ const AdminCoupons = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">Code</label>
-                <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })} className="input" />
+                <input type="text" value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value })} className="input" placeholder="SAVE10" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -137,18 +159,18 @@ const AdminCoupons = () => {
                   <label className="block text-sm font-medium text-neutral-700 mb-1">Type</label>
                   <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as 'percentage' | 'fixed' })} className="input">
                     <option value="percentage">Percentage (%)</option>
-                    <option value="fixed">Fixed ($)</option>
+                    <option value="fixed">Fixed (Rs)</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Minimum Order</label>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Min Order</label>
                 <input type="number" value={formData.minOrder} onChange={(e) => setFormData({ ...formData, minOrder: parseFloat(e.target.value) })} className="input" />
               </div>
-              <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={formData.enabled} onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })} />
-                <label className="text-sm text-neutral-700">Enabled</label>
-              </div>
+                Active
+              </label>
               <div className="flex gap-2 pt-2">
                 <button onClick={handleSave} className="btn-primary flex-1"><FiCheck className="w-4 h-4" />Save</button>
                 <button onClick={() => setShowModal(false)} className="btn-outline flex-1"><FiX className="w-4 h-4" />Cancel</button>

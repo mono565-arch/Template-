@@ -1,112 +1,88 @@
 import { useState, useEffect } from 'react'
-import { FiStar, FiTrash2, FiSearch, FiMessageSquare } from 'react-icons/fi'
-import { BsPinAngle, BsPinAngleFill } from 'react-icons/bs'
+import { FiStar, FiTrash2, FiRefreshCw } from 'react-icons/fi'
 import { formatDateTime } from '../utils/formatters'
+import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
 import type { Review } from '../types'
 
 const AdminReviews = () => {
   const [reviews, setReviews] = useState<Review[]>([])
-  const [search, setSearch] = useState('')
+
+  const loadReviews = () => {
+    const stored = getItem<Review[]>(LS_KEYS.REVIEWS, [])
+    setReviews(stored)
+  }
 
   useEffect(() => {
-    const load = () => {
-      const stored = JSON.parse(localStorage.getItem('pizza_saucy_reviews') || '[]')
-      setReviews(stored.sort((a: Review, b: Review) => new Date(b.date).getTime() - new Date(a.date).getTime()))
-    }
-    load()
-    const interval = setInterval(load, 3000)
+    loadReviews()
+    const interval = setInterval(loadReviews, 3000)
     return () => clearInterval(interval)
   }, [])
 
-  const togglePin = (id: string) => {
-    const updated = reviews.map((r) => r.id === id ? { ...r, pinned: !r.pinned } : r)
-    setReviews(updated)
-    localStorage.setItem('pizza_saucy_reviews', JSON.stringify(updated))
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure?')) {
+      const updated = reviews.filter((r) => r.id !== id)
+      setReviews(updated)
+      setItem(LS_KEYS.REVIEWS, updated)
+    }
   }
-
-  const deleteReview = (id: string) => {
-    const updated = reviews.filter((r) => r.id !== id)
-    setReviews(updated)
-    localStorage.setItem('pizza_saucy_reviews', JSON.stringify(updated))
-  }
-
-  const filtered = reviews.filter((r) =>
-    search.trim() === '' ||
-    r.name.toLowerCase().includes(search.toLowerCase()) ||
-    r.product.toLowerCase().includes(search.toLowerCase()) ||
-    r.review.toLowerCase().includes(search.toLowerCase())
-  )
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="font-heading font-bold text-2xl text-neutral-900">Reviews</h1>
-        <div className="relative">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search reviews..."
-            className="input pl-9 text-sm py-2"
-          />
-        </div>
+      <div className="flex items-center justify-between">
+        <h2 className="font-heading font-semibold text-lg">Reviews ({reviews.length})</h2>
+        <button onClick={loadReviews} className="btn-outline text-sm py-2">
+          <FiRefreshCw className="w-4 h-4" /> Refresh
+        </button>
       </div>
 
-      <div className="space-y-3">
-        {filtered.map((review) => (
-          <div
-            key={review.id}
-            className={`card p-5 transition-all ${review.pinned ? 'border-l-4 border-l-primary bg-primary-50/30' : ''}`}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-1">
-                  <h3 className="font-semibold text-sm text-neutral-900">{review.name}</h3>
-                  <div className="flex items-center gap-0.5">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <FiStar
-                        key={star}
-                        className={`w-3.5 h-3.5 ${star <= review.rating ? 'text-primary fill-primary' : 'text-neutral-300'}`}
-                      />
-                    ))}
-                  </div>
-                  {review.pinned && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary-100 px-2 py-0.5 rounded-full">
-                      Pinned
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-neutral-500 mb-1">
-                  {review.email} · {review.product} · {formatDateTime(review.date)}
-                </p>
-                <p className="text-sm text-neutral-700 leading-relaxed">{review.review}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => togglePin(review.id)}
-                  className={`p-2 rounded-lg transition-colors ${review.pinned ? 'text-primary bg-primary-100' : 'text-neutral-400 hover:bg-neutral-100'}`}
-                  title={review.pinned ? 'Unpin from homepage' : 'Pin to homepage'}
-                >
-                  {review.pinned ? <BsPinAngleFill className="w-4 h-4" /> : <BsPinAngle className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => deleteReview(review.id)}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Delete"
-                >
-                  <FiTrash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {filtered.length === 0 && (
-          <div className="text-center py-12">
-            <FiMessageSquare className="w-10 h-10 mx-auto mb-3 text-neutral-300" />
-            <p className="text-neutral-500 text-sm">No reviews found</p>
-          </div>
-        )}
+      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-neutral-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Product</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Rating</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Review</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Date</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-200">
+              {reviews.map((review) => (
+                <tr key={review.id} className="hover:bg-neutral-50">
+                  <td className="px-4 py-3 text-sm font-medium text-neutral-900">{review.name}</td>
+                  <td className="px-4 py-3 text-sm text-neutral-600">{review.product || '-'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-0.5">
+                      {[...Array(5)].map((_, i) => (
+                        <FiStar
+                          key={i}
+                          className={`w-4 h-4 ${i < review.rating ? 'text-primary fill-primary' : 'text-neutral-300'}`}
+                        />
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-neutral-600 max-w-xs truncate">{review.review}</td>
+                  <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">{review.date ? formatDateTime(review.date) : 'N/A'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button onClick={() => handleDelete(review.id)} className="p-1.5 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <FiTrash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {reviews.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-neutral-500">
+                    <FiStar className="w-8 h-8 mx-auto mb-2 text-neutral-300" />
+                    No reviews yet
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

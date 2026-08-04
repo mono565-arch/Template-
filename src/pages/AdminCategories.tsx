@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FiPlus, FiEdit2, FiTrash2, FiCheck, FiX } from 'react-icons/fi'
+import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
+import { addNotification } from '../utils/notifications'
 
 interface CategoryItem {
   id: string
@@ -9,21 +11,32 @@ interface CategoryItem {
 }
 
 const AdminCategories = () => {
-  const [categories, setCategories] = useState<CategoryItem[]>([
-    { id: '1', name: 'Pizza', icon: '🍕', count: 4 },
-    { id: '2', name: 'Burgers', icon: '🍔', count: 3 },
-    { id: '3', name: 'Fries', icon: '🍟', count: 3 },
-    { id: '4', name: 'Broast', icon: '🍗', count: 3 },
-    { id: '5', name: 'Sandwich', icon: '🥪', count: 3 },
-    { id: '6', name: 'Pasta', icon: '🍝', count: 3 },
-    { id: '7', name: 'Drinks', icon: '🥤', count: 4 },
-    { id: '8', name: 'Ice Cream', icon: '🍦', count: 3 },
-    { id: '9', name: 'Desserts', icon: '🍰', count: 3 },
-  ])
+  const [categories, setCategories] = useState<CategoryItem[]>(() => {
+    const stored = getItem<CategoryItem[]>(LS_KEYS.CATEGORIES, [])
+    if (stored.length === 0) {
+      const defaults: CategoryItem[] = [
+        { id: '1', name: 'Pizza', icon: '🍕', count: 0 },
+        { id: '2', name: 'Burgers', icon: '🍔', count: 0 },
+        { id: '3', name: 'Fries', icon: '🍟', count: 0 },
+        { id: '4', name: 'Broast', icon: '🍗', count: 0 },
+        { id: '5', name: 'Sandwich', icon: '🥪', count: 0 },
+        { id: '6', name: 'Drinks', icon: '🥤', count: 0 },
+        { id: '7', name: 'Ice Cream', icon: '🍦', count: 0 },
+        { id: '8', name: 'Desserts', icon: '🍰', count: 0 },
+      ]
+      setItem(LS_KEYS.CATEGORIES, defaults)
+      return defaults
+    }
+    return stored
+  })
 
   const [showModal, setShowModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null)
   const [formData, setFormData] = useState({ name: '', icon: '' })
+
+  useEffect(() => {
+    setItem(LS_KEYS.CATEGORIES, categories)
+  }, [categories])
 
   const openAddModal = () => {
     setEditingCategory(null)
@@ -40,15 +53,40 @@ const AdminCategories = () => {
   const handleSave = () => {
     if (!formData.name.trim()) return
     if (editingCategory) {
-      setCategories(categories.map((c) => (c.id === editingCategory.id ? { ...c, ...formData } : c)))
+      const updated = categories.map((c) => (c.id === editingCategory.id ? { ...c, ...formData } : c))
+      setCategories(updated)
+      addNotification({
+        type: 'category_added',
+        title: 'Category Updated',
+        message: `${formData.name} has been updated`,
+        link: '/admin/categories',
+      })
     } else {
-      setCategories([...categories, { id: 'new-' + Date.now(), ...formData, count: 0 }])
+      const newCategory: CategoryItem = { id: 'cat-' + Date.now(), ...formData, count: 0 }
+      setCategories([...categories, newCategory])
+      addNotification({
+        type: 'category_added',
+        title: 'Category Added',
+        message: `${newCategory.name} has been added`,
+        link: '/admin/categories',
+      })
     }
     setShowModal(false)
   }
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure?')) setCategories(categories.filter((c) => c.id !== id))
+    if (confirm('Are you sure?')) {
+      const category = categories.find((c) => c.id === id)
+      setCategories(categories.filter((c) => c.id !== id))
+      if (category) {
+        addNotification({
+          type: 'category_deleted',
+          title: 'Category Deleted',
+          message: `${category.name} has been deleted`,
+          link: '/admin/categories',
+        })
+      }
+    }
   }
 
   return (

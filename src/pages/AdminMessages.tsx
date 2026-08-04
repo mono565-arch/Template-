@@ -1,99 +1,109 @@
 import { useState, useEffect } from 'react'
-import { FiMessageSquare, FiCheck, FiTrash2, FiSearch } from 'react-icons/fi'
+import { FiMail, FiCheck, FiTrash2, FiRefreshCw } from 'react-icons/fi'
 import { formatDateTime } from '../utils/formatters'
+import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
 import type { ContactMessage } from '../types'
 
 const AdminMessages = () => {
   const [messages, setMessages] = useState<ContactMessage[]>([])
-  const [search, setSearch] = useState('')
+
+  const loadMessages = () => {
+    const stored = getItem<ContactMessage[]>(LS_KEYS.MESSAGES, [])
+    setMessages(stored)
+  }
 
   useEffect(() => {
-    const load = () => {
-      const stored = JSON.parse(localStorage.getItem('pizza_saucy_messages') || '[]')
-      setMessages(stored.sort((a: ContactMessage, b: ContactMessage) => new Date(b.date).getTime() - new Date(a.date).getTime()))
-    }
-    load()
-    const interval = setInterval(load, 3000)
+    loadMessages()
+    const interval = setInterval(loadMessages, 3000)
     return () => clearInterval(interval)
   }, [])
 
-  const markRead = (id: string) => {
-    const updated = messages.map((m) => m.id === id ? { ...m, read: true } : m)
+  const markAsRead = (id: string) => {
+    const updated = messages.map((m) => (m.id === id ? { ...m, read: true } : m))
     setMessages(updated)
-    localStorage.setItem('pizza_saucy_messages', JSON.stringify(updated))
+    setItem(LS_KEYS.MESSAGES, updated)
   }
 
-  const deleteMessage = (id: string) => {
-    const updated = messages.filter((m) => m.id !== id)
-    setMessages(updated)
-    localStorage.setItem('pizza_saucy_messages', JSON.stringify(updated))
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure?')) {
+      const updated = messages.filter((m) => m.id !== id)
+      setMessages(updated)
+      setItem(LS_KEYS.MESSAGES, updated)
+    }
   }
 
-  const filtered = messages.filter((m) =>
-    search.trim() === '' ||
-    m.name.toLowerCase().includes(search.toLowerCase()) ||
-    m.email.toLowerCase().includes(search.toLowerCase()) ||
-    m.message.toLowerCase().includes(search.toLowerCase())
-  )
+  const markAllRead = () => {
+    const updated = messages.map((m) => ({ ...m, read: true }))
+    setMessages(updated)
+    setItem(LS_KEYS.MESSAGES, updated)
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="font-heading font-bold text-2xl text-neutral-900">Messages</h1>
-        <div className="relative">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search messages..."
-            className="input pl-9 text-sm py-2"
-          />
+      <div className="flex items-center justify-between">
+        <h2 className="font-heading font-semibold text-lg">Messages ({messages.length})</h2>
+        <div className="flex gap-2">
+          <button onClick={markAllRead} className="btn-outline text-sm py-2">
+            <FiCheck className="w-4 h-4" /> Mark All Read
+          </button>
+          <button onClick={loadMessages} className="btn-outline text-sm py-2">
+            <FiRefreshCw className="w-4 h-4" /> Refresh
+          </button>
         </div>
       </div>
 
-      <div className="space-y-3">
-        {filtered.map((msg) => (
-          <div
-            key={msg.id}
-            className={`card p-5 transition-all ${!msg.read ? 'border-l-4 border-l-primary bg-primary-50/30' : ''}`}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-1">
-                  <h3 className="font-semibold text-sm text-neutral-900">{msg.name}</h3>
-                  {!msg.read && <span className="w-2 h-2 bg-primary rounded-full" />}
-                </div>
-                <p className="text-xs text-neutral-500 mb-2">{msg.email} · {formatDateTime(msg.date)}</p>
-                <p className="text-sm text-neutral-700 leading-relaxed">{msg.message}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {!msg.read && (
-                  <button
-                    onClick={() => markRead(msg.id)}
-                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                    title="Mark as read"
-                  >
-                    <FiCheck className="w-4 h-4" />
-                  </button>
-                )}
-                <button
-                  onClick={() => deleteMessage(msg.id)}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Delete"
-                >
-                  <FiTrash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {filtered.length === 0 && (
-          <div className="text-center py-12">
-            <FiMessageSquare className="w-10 h-10 mx-auto mb-3 text-neutral-300" />
-            <p className="text-neutral-500 text-sm">No messages found</p>
-          </div>
-        )}
+      <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-neutral-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Message</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-200">
+              {messages.map((msg) => (
+                <tr key={msg.id} className={`hover:bg-neutral-50 ${!msg.read ? 'bg-primary-50/30' : ''}`}>
+                  <td className="px-4 py-3 text-sm font-medium text-neutral-900">{msg.name}</td>
+                  <td className="px-4 py-3 text-sm text-neutral-600">{msg.email || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-neutral-600 max-w-xs truncate">{msg.message}</td>
+                  <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">{msg.date ? formatDateTime(msg.date) : 'N/A'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
+                      msg.read ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {msg.read ? 'Read' : 'Unread'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {!msg.read && (
+                        <button onClick={() => markAsRead(msg.id)} className="p-1.5 text-neutral-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Mark as read">
+                          <FiCheck className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button onClick={() => handleDelete(msg.id)} className="p-1.5 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {messages.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-neutral-500">
+                    <FiMail className="w-8 h-8 mx-auto mb-2 text-neutral-300" />
+                    No messages yet
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

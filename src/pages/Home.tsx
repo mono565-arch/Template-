@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiArrowRight, FiStar, FiClock } from 'react-icons/fi'
 import { routes } from '../constants/routes'
@@ -6,12 +7,22 @@ import CategoryCard from '../components/CategoryCard'
 import ProductCard from '../components/ProductCard'
 import ReviewCard from '../components/ReviewCard'
 import MapPlaceholder from '../components/MapPlaceholder'
-import { categories, featuredProducts, reviews } from '../data'
+import { featuredProducts, reviews } from '../data'
 import { useCartContext } from '../context/CartContext'
+import { getCategories } from '../utils/categories'
+import { formatCurrency } from '../utils/formatters'
 
 const Home = () => {
   const navigate = useNavigate()
   const { addItem } = useCartContext()
+  const [categories, setCategories] = useState(() => getCategories())
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCategories(getCategories())
+    }, 2000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleCategoryClick = (categoryName: string) => {
     navigate(`${routes.MENU}?category=${encodeURIComponent(categoryName)}`)
@@ -93,11 +104,11 @@ const Home = () => {
                 />
                 <div className="absolute -top-2 -right-2 bg-white rounded-xl px-4 py-2 shadow-lg">
                   <p className="text-xs text-neutral-500">Starting from</p>
-                  <p className="font-bold text-primary-700 text-lg">Rs 899</p>
+                  <p className="font-bold text-primary-700 text-lg">{formatCurrency(899)}</p>
                 </div>
                 <div className="absolute -bottom-2 -left-2 bg-white rounded-xl px-4 py-2 shadow-lg">
                   <p className="text-xs text-neutral-500">Free Delivery</p>
-                  <p className="font-bold text-secondary-700 text-sm">On orders Rs 2500+</p>
+                  <p className="font-bold text-secondary-700 text-sm">On orders {formatCurrency(2500)}+</p>
                 </div>
               </button>
             </div>

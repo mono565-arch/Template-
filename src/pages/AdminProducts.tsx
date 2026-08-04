@@ -1,23 +1,35 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiCheck } from 'react-icons/fi'
-import { menuProducts } from '../data'
+import { formatCurrency } from '../utils/formatters'
+import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
+import { getCategoryNames } from '../utils/categories'
+import { addNotification } from '../utils/notifications'
 import type { Product } from '../data'
 
 const AdminProducts = () => {
-  const [products, setProducts] = useState<Product[]>(menuProducts)
+  const [products, setProducts] = useState<Product[]>(() => getItem<Product[]>(LS_KEYS.PRODUCTS, []))
   const [searchQuery, setSearchQuery] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([])
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     description: '',
     price: 0,
-    category: 'Pizza',
+    category: '',
     rating: 4.5,
     image: '',
     isAvailable: true,
     isPopular: false,
   })
+
+  useEffect(() => {
+    setCategoryOptions(getCategoryNames())
+  }, [])
+
+  useEffect(() => {
+    setItem(LS_KEYS.PRODUCTS, products)
+  }, [products])
 
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -26,49 +38,76 @@ const AdminProducts = () => {
 
   const openAddModal = () => {
     setEditingProduct(null)
+    const cats = getCategoryNames()
     setFormData({
       name: '',
       description: '',
       price: 0,
-      category: 'Pizza',
+      category: cats.length > 0 ? cats[0] : '',
       rating: 4.5,
       image: '',
       isAvailable: true,
       isPopular: false,
     })
+    setCategoryOptions(cats)
     setShowModal(true)
   }
 
   const openEditModal = (product: Product) => {
     setEditingProduct(product)
     setFormData({ ...product })
+    setCategoryOptions(getCategoryNames())
     setShowModal(true)
   }
 
   const handleSave = () => {
-    if (!formData.name || !formData.price) return
+    if (!formData.name || !formData.price || !formData.category) return
     if (editingProduct) {
-      setProducts(products.map((p) => (p.id === editingProduct.id ? { ...p, ...formData } as Product : p)))
+      const updated = products.map((p) => (p.id === editingProduct.id ? { ...p, ...formData } as Product : p))
+      setProducts(updated)
+      addNotification({
+        type: 'product_updated',
+        title: 'Product Updated',
+        message: `${formData.name} has been updated`,
+        link: '/admin/products',
+      })
     } else {
       const newProduct: Product = {
-        id: 'new-' + Date.now(),
+        id: 'prod-' + Date.now(),
         name: formData.name || '',
         description: formData.description || '',
-        price: formData.price || 0,
-        category: formData.category || 'Pizza',
-        rating: formData.rating || 4.5,
+        price: Number(formData.price) || 0,
+        category: formData.category || '',
+        rating: Number(formData.rating) || 4.5,
         image: formData.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop',
         isAvailable: formData.isAvailable ?? true,
         isPopular: formData.isPopular ?? false,
+        sizes: formData.sizes,
+        ingredients: formData.ingredients,
       }
       setProducts([...products, newProduct])
+      addNotification({
+        type: 'product_added',
+        title: 'Product Added',
+        message: `${newProduct.name} has been added`,
+        link: '/admin/products',
+      })
     }
     setShowModal(false)
   }
 
   const handleDelete = (id: string) => {
     if (confirm('Are you sure you want to delete this product?')) {
+      const product = products.find((p) => p.id === id)
       setProducts(products.filter((p) => p.id !== id))
+      if (product) {
+        addNotification({
+          type: 'product_deleted',
+          title: 'Product Deleted',
+          message: `${product.name} has been deleted`,
+          link: '/admin/products',
+        })
+      }
     }
   }
 
@@ -116,7 +155,7 @@ const AdminProducts = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-neutral-600">{product.category}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-neutral-900">${product.price.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-neutral-900">{formatCurrency(product.price)}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 text-xs rounded-full ${product.isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {product.isAvailable ? 'Available' : 'Unavailable'}
@@ -139,7 +178,6 @@ const AdminProducts = () => {
         </div>
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowModal(false)} />
@@ -162,7 +200,7 @@ const AdminProducts = () => {
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-1">Category</label>
                   <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="input">
-                    {['Pizza', 'Burgers', 'Fries', 'Broast', 'Sandwich', 'Pasta', 'Drinks', 'Ice Cream', 'Desserts'].map((c) => (
+                    {categoryOptions.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
