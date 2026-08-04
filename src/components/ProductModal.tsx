@@ -124,7 +124,7 @@ const ProductModal = ({ product, isOpen, onClose, onAddToCart, selectedSize, onS
                     key={s.size}
                     onClick={() => handleSizeClick(s.size)}
                     className={`flex flex-col items-center px-4 py-2.5 rounded-xl border transition-all ${
-                      localSize === s.size || (!localSize && s.size === 'Medium')
+                      localSize === s.size || (!localSize && product.sizes && s.size === product.sizes[0].size)
                         ? 'bg-primary text-neutral-900 border-primary shadow-sm'
                         : 'bg-white text-neutral-600 border-neutral-200 hover:border-primary-300'
                     }`}

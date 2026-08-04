@@ -1,133 +1,239 @@
 import { useState, useEffect } from 'react'
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiCheck } from 'react-icons/fi'
-import { formatCurrency } from '../utils/formatters'
-import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
-import { getCategoryNames } from '../utils/categories'
+import {
+  FiPlus,
+  FiEdit2,
+  FiTrash2,
+  FiSearch,
+  FiX,
+  FiCheck,
+} from 'react-icons/fi'
+import { getItem, setItem, LS_KEYS } from '../utils/localStorage'
+import { getCategories } from '../utils/categories'
 import { addNotification } from '../utils/notifications'
 import type { Product } from '../data'
 
 const AdminProducts = () => {
-  const [products, setProducts] = useState<Product[]>(() => getItem<Product[]>(LS_KEYS.PRODUCTS, []))
+  const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [showModal, setShowModal] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [categoryOptions, setCategoryOptions] = useState<string[]>([])
+  const [categories, setCategories] = useState(() => getCategories())
+
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     description: '',
     price: 0,
-    category: '',
     rating: 4.5,
     image: '',
-    isAvailable: true,
+    category: '',
+    ingredients: [],
     isPopular: false,
+    isAvailable: true,
+    isFeatured: false,
+    sizes: undefined,
   })
 
+  const [smallPrice, setSmallPrice] = useState('')
+  const [mediumPrice, setMediumPrice] = useState('')
+  const [largePrice, setLargePrice] = useState('')
+
   useEffect(() => {
-    setCategoryOptions(getCategoryNames())
+    const interval = setInterval(() => {
+      setCategories(getCategories())
+    }, 2000)
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
-    setItem(LS_KEYS.PRODUCTS, products)
-  }, [products])
+    loadProducts()
+  }, [])
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const loadProducts = () => {
+    const stored = getItem<Product[]>(LS_KEYS.PRODUCTS, [])
+    setProducts(stored)
+  }
+
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const openAddModal = () => {
-    setEditingProduct(null)
-    const cats = getCategoryNames()
+  const resetForm = () => {
     setFormData({
       name: '',
       description: '',
       price: 0,
-      category: cats.length > 0 ? cats[0] : '',
       rating: 4.5,
       image: '',
-      isAvailable: true,
+      category: '',
+      ingredients: [],
       isPopular: false,
+      isAvailable: true,
+      isFeatured: false,
+      sizes: undefined,
     })
-    setCategoryOptions(cats)
-    setShowModal(true)
+    setSmallPrice('')
+    setMediumPrice('')
+    setLargePrice('')
+    setEditingProduct(null)
+  }
+
+  const openAddModal = () => {
+    resetForm()
+    setIsModalOpen(true)
   }
 
   const openEditModal = (product: Product) => {
     setEditingProduct(product)
     setFormData({ ...product })
-    setCategoryOptions(getCategoryNames())
-    setShowModal(true)
+    if (product.sizes && product.sizes.length > 0) {
+      const small = product.sizes.find((s) => s.size === 'Small')
+      const medium = product.sizes.find((s) => s.size === 'Medium')
+      const large = product.sizes.find((s) => s.size === 'Large')
+      setSmallPrice(small ? String(small.price) : '')
+      setMediumPrice(medium ? String(medium.price) : '')
+      setLargePrice(large ? String(large.price) : '')
+    } else {
+      setSmallPrice('')
+      setMediumPrice('')
+      setLargePrice('')
+    }
+    setIsModalOpen(true)
   }
 
-  const handleSave = () => {
-    if (!formData.name || !formData.price || !formData.category) return
+  const closeModal = () => {
+    setIsModalOpen(false)
+    resetForm()
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!formData.name || !formData.category) {
+      addNotification({
+        type: 'product_added',
+        title: 'Validation Error',
+        message: 'Name and category are required',
+      })
+      return
+    }
+
+    const isPizza = formData.category === 'Pizza'
+
+    let sizes:
+      | { size: 'Small' | 'Medium' | 'Large'; price: number }[]
+      | undefined
+
+    if (isPizza) {
+      const sPrice = parseFloat(smallPrice)
+      const mPrice = parseFloat(mediumPrice)
+      const lPrice = parseFloat(largePrice)
+
+      if (
+        isNaN(sPrice) ||
+        isNaN(mPrice) ||
+        isNaN(lPrice) ||
+        sPrice <= 0 ||
+        mPrice <= 0 ||
+        lPrice <= 0
+      ) {
+        addNotification({
+          type: 'product_added',
+          title: 'Validation Error',
+          message: 'Please enter valid prices for all pizza sizes',
+        })
+        return
+      }
+
+      sizes = [
+        { size: 'Small', price: sPrice },
+        { size: 'Medium', price: mPrice },
+        { size: 'Large', price: lPrice },
+      ]
+    }
+
+    const productData: Product = {
+      id: editingProduct ? editingProduct.id : `prod_${Date.now()}`,
+      name: formData.name || '',
+      description: formData.description || '',
+      price:
+        isPizza && sizes ? sizes[1].price : formData.price || 0,
+      rating: formData.rating || 4.5,
+      image: formData.image || '',
+      category: formData.category || '',
+      ingredients: formData.ingredients || [],
+      isPopular: formData.isPopular || false,
+      isAvailable: formData.isAvailable !== false,
+      isFeatured: formData.isFeatured || false,
+      sizes: sizes,
+    }
+
+    let updated: Product[]
     if (editingProduct) {
-      const updated = products.map((p) => (p.id === editingProduct.id ? { ...p, ...formData } as Product : p))
-      setProducts(updated)
+      updated = products.map((p) =>
+        p.id === editingProduct.id ? productData : p
+      )
       addNotification({
         type: 'product_updated',
         title: 'Product Updated',
-        message: `${formData.name} has been updated`,
-        link: '/admin/products',
+        message: `${productData.name} has been updated successfully`,
       })
     } else {
-      const newProduct: Product = {
-        id: 'prod-' + Date.now(),
-        name: formData.name || '',
-        description: formData.description || '',
-        price: Number(formData.price) || 0,
-        category: formData.category || '',
-        rating: Number(formData.rating) || 4.5,
-        image: formData.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop',
-        isAvailable: formData.isAvailable ?? true,
-        isPopular: formData.isPopular ?? false,
-        sizes: formData.sizes,
-        ingredients: formData.ingredients,
-      }
-      setProducts([...products, newProduct])
+      updated = [...products, productData]
       addNotification({
         type: 'product_added',
         title: 'Product Added',
-        message: `${newProduct.name} has been added`,
-        link: '/admin/products',
+        message: `${productData.name} has been added successfully`,
       })
     }
-    setShowModal(false)
+
+    setItem(LS_KEYS.PRODUCTS, updated)
+    setProducts(updated)
+    closeModal()
   }
 
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      const product = products.find((p) => p.id === id)
-      setProducts(products.filter((p) => p.id !== id))
-      if (product) {
-        addNotification({
-          type: 'product_deleted',
-          title: 'Product Deleted',
-          message: `${product.name} has been deleted`,
-          link: '/admin/products',
-        })
-      }
-    }
+    if (!window.confirm('Are you sure you want to delete this product?'))
+      return
+    const product = products.find((p) => p.id === id)
+    const updated = products.filter((p) => p.id !== id)
+    setItem(LS_KEYS.PRODUCTS, updated)
+    setProducts(updated)
+    addNotification({
+      type: 'product_deleted',
+      title: 'Product Deleted',
+      message: product ? `${product.name} has been deleted` : 'Product has been deleted',
+    })
   }
+
+  const isPizzaCategory = formData.category === 'Pizza'
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search products..."
-            className="w-full pl-9 pr-4 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-          />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Products</h1>
+          <p className="text-neutral-500 mt-1">Manage your menu items</p>
         </div>
-        <button onClick={openAddModal} className="btn-primary text-sm py-2">
+        <button
+          onClick={openAddModal}
+          className="btn-primary flex items-center justify-center gap-2"
+        >
           <FiPlus className="w-4 h-4" />
           Add Product
         </button>
+      </div>
+
+      <div className="relative">
+        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+        <input
+          type="text"
+          placeholder="Search products..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+        />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
@@ -135,92 +241,378 @@ const AdminProducts = () => {
           <table className="w-full">
             <thead className="bg-neutral-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Product</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Category</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Price</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
+                  Product
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
+                  Category
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
+                  Price
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
+                  Featured
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
+                  Available
+                </th>
+                <th className="px-4 py-3 text-right text-sm font-semibold text-neutral-700">
+                  Actions
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-200">
+            <tbody className="divide-y divide-neutral-100">
               {filteredProducts.map((product) => (
                 <tr key={product.id} className="hover:bg-neutral-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <img src={product.image} alt={product.name} className="w-10 h-10 rounded-lg object-cover" />
+                      {product.image && (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-10 h-10 rounded-lg object-cover"
+                        />
+                      )}
                       <div>
-                        <p className="text-sm font-medium text-neutral-900">{product.name}</p>
-                        <p className="text-xs text-neutral-500">{product.isPopular ? 'Popular' : ''}</p>
+                        <p className="font-medium text-neutral-900">
+                          {product.name}
+                        </p>
+                        <p className="text-xs text-neutral-500 line-clamp-1">
+                          {product.description}
+                        </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-neutral-600">{product.category}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-neutral-900">{formatCurrency(product.price)}</td>
+                  <td className="px-4 py-3 text-sm text-neutral-600">
+                    {product.category}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-neutral-600">
+                    {product.sizes && product.sizes.length > 0
+                      ? `${product.sizes[0].price} - ${product.sizes[2]?.price || product.sizes[product.sizes.length - 1].price}`
+                      : product.price}
+                  </td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs rounded-full ${product.isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {product.isAvailable ? 'Available' : 'Unavailable'}
-                    </span>
+                    {product.isFeatured ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                        <FiCheck className="w-3 h-3" /> Yes
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 text-neutral-500 text-xs rounded-full">
+                        <FiX className="w-3 h-3" /> No
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {product.isAvailable !== false ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-600 text-xs rounded-full">
+                        <FiCheck className="w-3 h-3" /> Yes
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 text-xs rounded-full">
+                        <FiX className="w-3 h-3" /> No
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openEditModal(product)} className="p-1.5 text-neutral-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
+                      <button
+                        onClick={() => openEditModal(product)}
+                        className="p-2 text-neutral-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      >
                         <FiEdit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(product.id)} className="p-1.5 text-neutral-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <button
+                        onClick={() => handleDelete(product.id)}
+                        className="p-2 text-neutral-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      >
                         <FiTrash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {filteredProducts.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-8 text-center text-neutral-500"
+                  >
+                    No products found
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowModal(false)} />
-          <div className="relative bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h3 className="font-heading font-semibold text-lg mb-4">{editingProduct ? 'Edit Product' : 'Add Product'}</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Name</label>
-                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="input" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="input resize-none" rows={2} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">Price</label>
-                  <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })} className="input" />
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-100">
+              <h2 className="text-xl font-bold text-neutral-900">
+                {editingProduct ? 'Edit Product' : 'Add Product'}
+              </h2>
+              <button
+                onClick={closeModal}
+                className="p-2 text-neutral-400 hover:text-neutral-600 rounded-lg transition-colors"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Product Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  />
                 </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        description: e.target.value,
+                      })
+                    }
+                    rows={3}
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">Category</label>
-                  <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="input">
-                    {categoryOptions.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Category *
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        category: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    required
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </option>
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Rating
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="5"
+                    value={formData.rating}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        rating: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Image URL
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.image}
+                    onChange={(e) =>
+                      setFormData({ ...formData, image: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+
+                {/* Pizza Size Prices */}
+                {isPizzaCategory && (
+                  <div className="sm:col-span-2 grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1">
+                        Small Price *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={smallPrice}
+                        onChange={(e) => setSmallPrice(e.target.value)}
+                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="e.g. 899"
+                        required={isPizzaCategory}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1">
+                        Medium Price *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={mediumPrice}
+                        onChange={(e) => setMediumPrice(e.target.value)}
+                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="e.g. 1299"
+                        required={isPizzaCategory}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1">
+                        Large Price *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={largePrice}
+                        onChange={(e) => setLargePrice(e.target.value)}
+                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="e.g. 1699"
+                        required={isPizzaCategory}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Single Price for non-Pizza */}
+                {!isPizzaCategory && (
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">
+                      Price *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.price || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          price: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      required={!isPizzaCategory}
+                    />
+                  </div>
+                )}
+
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Ingredients (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={(formData.ingredients || []).join(', ')}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        ingredients: e.target.value
+                          .split(',')
+                          .map((i) => i.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isPopular || false}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          isPopular: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 text-primary rounded border-neutral-300 focus:ring-primary"
+                    />
+                    <span className="text-sm text-neutral-700">Popular</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isAvailable !== false}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          isAvailable: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 text-primary rounded border-neutral-300 focus:ring-primary"
+                    />
+                    <span className="text-sm text-neutral-700">
+                      Available
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isFeatured || false}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          isFeatured: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 text-primary rounded border-neutral-300 focus:ring-primary"
+                    />
+                    <span className="text-sm text-neutral-700 font-medium">
+                      Featured Product
+                    </span>
+                  </label>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={formData.isAvailable} onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })} />
-                  Available
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={formData.isPopular} onChange={(e) => setFormData({ ...formData, isPopular: e.target.checked })} />
-                  Popular
-                </label>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  {editingProduct ? 'Update Product' : 'Add Product'}
+                </button>
               </div>
-              <div className="flex gap-2 pt-2">
-                <button onClick={handleSave} className="btn-primary flex-1"><FiCheck className="w-4 h-4" />Save</button>
-                <button onClick={() => setShowModal(false)} className="btn-outline flex-1"><FiX className="w-4 h-4" />Cancel</button>
-              </div>
-            </div>
+            </form>
           </div>
         </div>
       )}

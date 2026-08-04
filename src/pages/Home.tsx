@@ -7,15 +7,20 @@ import CategoryCard from '../components/CategoryCard'
 import ProductCard from '../components/ProductCard'
 import ReviewCard from '../components/ReviewCard'
 import MapPlaceholder from '../components/MapPlaceholder'
-import { featuredProducts, reviews } from '../data'
 import { useCartContext } from '../context/CartContext'
 import { getCategories } from '../utils/categories'
 import { formatCurrency } from '../utils/formatters'
+import { getItem } from '../utils/localStorage'
+import { LS_KEYS } from '../utils/localStorage'
+import type { Product } from '../data'
+import type { ReviewData } from '../data'
 
 const Home = () => {
   const navigate = useNavigate()
   const { addItem } = useCartContext()
   const [categories, setCategories] = useState(() => getCategories())
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
+  const [reviews, setReviews] = useState<ReviewData[]>([])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -24,21 +29,46 @@ const Home = () => {
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    const loadFeatured = () => {
+      const products = getItem<Product[]>(LS_KEYS.PRODUCTS, [])
+      const featured = products.filter((p) => p.isFeatured === true)
+      setFeaturedProducts(featured)
+    }
+    loadFeatured()
+    const interval = setInterval(loadFeatured, 2000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    const loadReviews = () => {
+      const stored = getItem<ReviewData[]>(LS_KEYS.REVIEWS, [])
+      setReviews(stored)
+    }
+    loadReviews()
+    const interval = setInterval(loadReviews, 2000)
+    return () => clearInterval(interval)
+  }, [])
+
   const handleCategoryClick = (categoryName: string) => {
     navigate(`${routes.MENU}?category=${encodeURIComponent(categoryName)}`)
   }
 
-  const handleAddToCart = (product: typeof featuredProducts[0]) => {
-    const price = product.sizes && product.sizes.length > 0
-      ? product.sizes[1].price
-      : product.price
+  const handleAddToCart = (product: Product) => {
+    const price =
+      product.sizes && product.sizes.length > 0
+        ? product.sizes[0].price
+        : product.price
     addItem({
       id: product.id,
       name: product.name,
       price: price,
       quantity: 1,
       image: product.image,
-      size: product.sizes && product.sizes.length > 0 ? product.sizes[1].size : undefined,
+      size:
+        product.sizes && product.sizes.length > 0
+          ? product.sizes[0].size
+          : undefined,
     })
   }
 
