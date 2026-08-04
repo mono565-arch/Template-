@@ -13,16 +13,54 @@ const statusConfig: Record<OrderStatus, { label: string; icon: typeof FiClock; s
   cancelled: { label: 'Cancelled', icon: FiXCircle, style: 'bg-red-100 text-red-700' },
 }
 
+/** Fallback for orders with missing/invalid status */
+const defaultStatusConfig = {
+  label: 'Unknown',
+  icon: FiPackage,
+  style: 'bg-neutral-100 text-neutral-600',
+}
+
 const AdminOrders = () => {
   const [orders, setOrders] = useState<Order[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const load = () => {
-      const stored = JSON.parse(localStorage.getItem('pizza_saucy_orders') || '[]')
-      setOrders(stored.sort((a: Order, b: Order) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+      try {
+        const storedRaw = localStorage.getItem('pizza_saucy_orders')
+        const stored = storedRaw ? JSON.parse(storedRaw) : []
+
+        if (!Array.isArray(stored)) {
+          setOrders([])
+          setIsLoading(false)
+          return
+        }
+
+        const validOrders = stored
+          .filter((o: unknown): o is Order => {
+            return (
+              o !== null &&
+              typeof o === 'object' &&
+              'id' in o &&
+              typeof (o as Record<string, unknown>).id === 'string'
+            )
+          })
+          .sort((a: Order, b: Order) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+            return dateB - dateA
+          })
+
+        setOrders(validOrders)
+      } catch {
+        setOrders([])
+      } finally {
+        setIsLoading(false)
+      }
     }
+
     load()
     const interval = setInterval(load, 2000)
     return () => clearInterval(interval)
@@ -34,14 +72,30 @@ const AdminOrders = () => {
     localStorage.setItem('pizza_saucy_orders', JSON.stringify(updated))
   }
 
+  const getStatusConfig = (status: string | undefined) => {
+    if (status && status in statusConfig) {
+      return statusConfig[status as OrderStatus]
+    }
+    return defaultStatusConfig
+  }
+
   const filtered = orders.filter((o) => {
+    const searchTerm = search.trim().toLowerCase()
     const matchesSearch =
-      search.trim() === '' ||
-      o.id.toLowerCase().includes(search.toLowerCase()) ||
-      o.customerName?.toLowerCase().includes(search.toLowerCase())
+      searchTerm === '' ||
+      o.id.toLowerCase().includes(searchTerm) ||
+      (o.customerName?.toLowerCase() || '').includes(searchTerm)
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter
     return matchesSearch && matchesStatus
   })
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -87,23 +141,29 @@ const AdminOrders = () => {
             </thead>
             <tbody className="divide-y divide-neutral-200">
               {filtered.map((order) => {
-                const StatusIcon = statusConfig[order.status].icon
+                const config = getStatusConfig(order.status)
+                const StatusIcon = config.icon
+                const itemCount = Array.isArray(order.items) ? order.items.length : 0
+                const orderTotal = typeof order.total === 'number' ? order.total : 0
+
                 return (
                   <tr key={order.id} className="hover:bg-neutral-50 transition-colors">
                     <td className="px-4 py-3 text-sm font-medium text-neutral-900">{order.id}</td>
                     <td className="px-4 py-3 text-sm text-neutral-600">{order.customerName || 'Guest'}</td>
-                    <td className="px-4 py-3 text-sm text-neutral-600">{order.items.length}</td>
-                    <td className="px-4 py-3 text-sm font-bold text-neutral-900">{formatCurrency(order.total)}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-600">{itemCount}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-neutral-900">{formatCurrency(orderTotal)}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${statusConfig[order.status].style}`}>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${config.style}`}>
                         <StatusIcon className="w-3 h-3" />
-                        {statusConfig[order.status].label}
+                        {config.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-neutral-500 hidden lg:table-cell">{formatDateTime(order.createdAt)}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-500 hidden lg:table-cell">
+                      {order.createdAt ? formatDateTime(order.createdAt) : 'N/A'}
+                    </td>
                     <td className="px-4 py-3">
                       <select
-                        value={order.status}
+                        value={order.status || 'pending'}
                         onChange={(e) => updateStatus(order.id, e.target.value as OrderStatus)}
                         className="input text-xs py-1.5 pr-8"
                       >
