@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { FiShoppingCart, FiMenu, FiX, FiUser, FiLogOut } from 'react-icons/fi'
 import { routes } from '../constants/routes'
 import { useCartContext } from '../context/CartContext'
+import { authService } from '../services/api'
 
 interface AuthUser {
   id: string
@@ -19,25 +20,21 @@ const Navbar = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const checkAuth = () => {
-      const stored = localStorage.getItem('pizza_saucy_auth')
-      if (stored) {
-        try {
-          setAuthUser(JSON.parse(stored))
-        } catch {
-          setAuthUser(null)
-        }
+    // Listen to Firebase Auth state changes
+    const unsubscribe = authService.onAuthChange((user) => {
+      if (user) {
+        setAuthUser({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+          role: user.role,
+        })
       } else {
         setAuthUser(null)
       }
-    }
-    checkAuth()
-    window.addEventListener('storage', checkAuth)
-    const interval = setInterval(checkAuth, 500)
-    return () => {
-      window.removeEventListener('storage', checkAuth)
-      clearInterval(interval)
-    }
+    })
+    return () => unsubscribe()
   }, [])
 
   const navLinks = [
@@ -55,8 +52,8 @@ const Navbar = () => {
     setIsMobileMenuOpen(false)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('pizza_saucy_auth')
+  const handleLogout = async () => {
+    await authService.logout()
     setAuthUser(null)
     navigate(routes.HOME)
     closeMobileMenu()

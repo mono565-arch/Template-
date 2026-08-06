@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiMail, FiLock, FiLogIn, FiEye, FiEyeOff } from 'react-icons/fi'
 import { routes } from '../constants/routes'
+import { authService } from '../services/api'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -25,16 +26,15 @@ const Login = () => {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (validate()) {
-      const users = JSON.parse(localStorage.getItem('pizza_saucy_users') || '[]')
-      const user = users.find((u: { email: string; password: string }) => u.email === formData.email && u.password === formData.password)
-      if (user) {
-        localStorage.setItem('pizza_saucy_auth', JSON.stringify({ id: user.id, email: user.email, name: user.name, avatar: user.avatar, role: 'customer' }))
+      try {
+        await authService.login(formData.email, formData.password)
         navigate(routes.PROFILE)
-      } else {
-        setErrors({ ...errors, general: 'Invalid email or password' })
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Invalid email or password'
+        setErrors({ ...errors, general: errorMessage })
       }
     }
   }

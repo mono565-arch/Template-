@@ -20,9 +20,9 @@ const DEFAULT_CATEGORIES: CategoryItem[] = [
 
 export function getCategories(): CategoryItem[] {
   const stored = getItem<CategoryItem[]>(LS_KEYS.CATEGORIES, [])
+  // Don't fallback to defaults — Firestore listener populates the cache
   if (stored.length === 0) {
-    setItem(LS_KEYS.CATEGORIES, DEFAULT_CATEGORIES)
-    return DEFAULT_CATEGORIES
+    return []
   }
   return stored
 }

@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { cartService, authService } from '../services/api'
 import type { CartItem } from '../types'
+import type { User } from '../types'
 
 interface CartContextType {
   items: CartItem[]
@@ -27,10 +29,37 @@ const getStoredCart = (): CartItem[] => {
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>(getStoredCart)
+  const [user, setUser] = useState<User | null>(null)
 
+  // Load user and their cart from Firebase
   useEffect(() => {
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
-  }, [items])
+    const unsubscribe = authService.onAuthChange((firebaseUser) => {
+      setUser(firebaseUser)
+      if (firebaseUser) {
+        // Load cart from Firestore for logged-in user
+        cartService.getCart(firebaseUser.id).then((cartItems) => {
+          if (cartItems && cartItems.length > 0) {
+            setItems(cartItems)
+          }
+        }).catch(() => {
+          // Fallback to localStorage on error
+        })
+      }
+    })
+    return () => unsubscribe()
+  }, [])
+
+  // Persist cart to Firestore or localStorage
+  useEffect(() => {
+    if (user) {
+      cartService.saveCart(user.id, items).catch(() => {
+        // Fallback to localStorage on Firestore error
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
+      })
+    } else {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
+    }
+  }, [items, user])
 
   const addItem = useCallback((item: CartItem) => {
     setItems((prev) => {
@@ -62,7 +91,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCart = useCallback(() => {
     setItems([])
-  }, [])
+    if (user) {
+      cartService.clearCart(user.id).catch(() => {
+        localStorage.removeItem(CART_STORAGE_KEY)
+      })
+    } else {
+      localStorage.removeItem(CART_STORAGE_KEY)
+    }
+  }, [user])
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0)

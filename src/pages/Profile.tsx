@@ -4,7 +4,8 @@ import { FiShoppingBag, FiClock, FiCheckCircle, FiMapPin, FiUser, FiPackage, FiC
 import { routes } from '../constants/routes'
 import { formatCurrency, formatDateTime } from '../utils/formatters'
 import { LS_KEYS, getItem } from '../utils/localStorage'
-import type { Order } from '../types'
+import { authService, userService } from '../services/api'
+import type { Order, User } from '../types'
 
 const Profile = () => {
   const navigate = useNavigate()
@@ -15,31 +16,30 @@ const Profile = () => {
   const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' })
 
   useEffect(() => {
-    const storedAuth = localStorage.getItem('pizza_saucy_auth')
-    if (storedAuth) {
-      try {
-        const auth = JSON.parse(storedAuth)
-        setUser(auth.user || auth)
-      } catch {
+    // Load user from Firebase Auth + Firestore
+    const unsubscribe = authService.onAuthChange((firebaseUser) => {
+      if (firebaseUser) {
+        setUser({
+          name: firebaseUser.name,
+          email: firebaseUser.email,
+          phone: firebaseUser.phone,
+          photo: firebaseUser.avatar,
+        })
+      } else {
         setUser(null)
       }
-    }
+    })
     const storedOrders = getItem<Order[]>(LS_KEYS.ORDERS, [])
     setOrders(storedOrders)
+    return () => unsubscribe()
   }, [])
 
-  const updateAuthStorage = (updatedUser: any) => {
-    const storedAuth = localStorage.getItem('pizza_saucy_auth')
-    if (storedAuth) {
-      try {
-        const auth = JSON.parse(storedAuth)
-        const newAuth = auth.user ? { ...auth, user: { ...auth.user, ...updatedUser } } : { ...auth, ...updatedUser }
-        localStorage.setItem('pizza_saucy_auth', JSON.stringify(newAuth))
-      } catch {
-        // fallback
-      }
+  const updateAuthStorage = async (updatedUser: Partial<User>) => {
+    const currentUser = await authService.getCurrentUser()
+    if (currentUser) {
+      await userService.update(currentUser.id, updatedUser)
+      setUser(prev => prev ? { ...prev, ...updatedUser } : null)
     }
-    setUser(prev => prev ? { ...prev, ...updatedUser } : null)
   }
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,7 +49,7 @@ const Profile = () => {
     const reader = new FileReader()
     reader.onloadend = () => {
       const base64 = reader.result as string
-      updateAuthStorage({ photo: base64 })
+      updateAuthStorage({ avatar: base64 })
     }
     reader.readAsDataURL(file)
   }
@@ -78,9 +78,8 @@ const Profile = () => {
     setIsEditing(false)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('pizza_saucy_auth')
-    localStorage.removeItem('pizza_saucy_user')
+  const handleLogout = async () => {
+    await authService.logout()
     navigate(routes.LOGIN)
   }
 

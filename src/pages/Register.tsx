@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FiUser, FiMail, FiLock, FiUserPlus, FiEye, FiEyeOff } from 'react-icons/fi'
 import { routes } from '../constants/routes'
+import { authService } from '../services/api'
 
 const Register = () => {
   const navigate = useNavigate()
@@ -36,27 +37,16 @@ const Register = () => {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (validate()) {
-      const users = JSON.parse(localStorage.getItem('pizza_saucy_users') || '[]')
-      if (users.find((u: { email: string }) => u.email === formData.email)) {
-        setErrors({ ...errors, general: 'An account with this email already exists' })
-        return
+      try {
+        await authService.register(formData.email, formData.password, formData.name)
+        navigate(routes.PROFILE)
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'An account with this email already exists'
+        setErrors({ ...errors, general: errorMessage })
       }
-      const newUser = {
-        id: 'user-' + Date.now(),
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        avatar: '',
-        phone: '',
-        address: '',
-      }
-      users.push(newUser)
-      localStorage.setItem('pizza_saucy_users', JSON.stringify(users))
-      localStorage.setItem('pizza_saucy_auth', JSON.stringify({ id: newUser.id, email: newUser.email, name: newUser.name, avatar: '', role: 'customer' }))
-      navigate(routes.PROFILE)
     }
   }
 
