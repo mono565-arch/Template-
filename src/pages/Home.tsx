@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiArrowRight, FiStar, FiClock, FiShoppingCart, FiTag } from 'react-icons/fi'
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
 import { routes } from '../constants/routes'
 import SectionTitle from '../components/SectionTitle'
 import CategoryCard from '../components/CategoryCard'
@@ -10,13 +12,14 @@ import { useCartContext } from '../context/CartContext'
 import { formatCurrency } from '../utils/formatters'
 import { getItem } from '../utils/localStorage'
 import { LS_KEYS } from '../utils/localStorage'
-import { homeCategories, deals } from '../data'
-import type { ReviewData } from '../data'
+import { homeCategories } from '../data'
+import type { ReviewData, Deal } from '../data'
 
 const Home = () => {
   const navigate = useNavigate()
   const { addItem } = useCartContext()
   const [reviews, setReviews] = useState<ReviewData[]>([])
+  const [deals, setDeals] = useState<Deal[]>([])
 
   useEffect(() => {
     const loadReviews = () => {
@@ -28,11 +31,23 @@ const Home = () => {
     return () => clearInterval(interval)
   }, [])
 
+  // Real-time Firestore subscription for deals
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'deals'), orderBy('name')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => ({ ...d.data(), id: d.id })) as Deal[]
+        setDeals(data)
+      }
+    )
+    return () => unsubscribe()
+  }, [])
+
   const handleCategoryClick = (categoryName: string) => {
     navigate(`${routes.MENU}?category=${encodeURIComponent(categoryName)}`)
   }
 
-  const handleDealClick = (dealId: string) => {
+  const handleDealClick = () => {
     navigate(`${routes.MENU}?category=Deals`)
   }
 
@@ -137,56 +152,70 @@ const Home = () => {
             title="Deals"
             subtitle="Amazing combo deals for you and your family"
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {deals.map((deal) => (
-              <div
-                key={deal.id}
-                onClick={() => handleDealClick(deal.id)}
-                className="group bg-white rounded-2xl border border-neutral-200 shadow-sm hover:shadow-xl hover:border-primary-200 transition-all duration-300 overflow-hidden cursor-pointer flex flex-col"
-              >
-                {/* Placeholder Image */}
-                <div className="relative h-48 bg-neutral-100 flex items-center justify-center overflow-hidden">
-                  {deal.image ? (
-                    <img
-                      src={deal.image}
-                      alt={deal.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="text-center">
-                      <FiTag className="w-12 h-12 text-neutral-300 mx-auto mb-2" />
-                      <span className="text-xs text-neutral-400">Add Image</span>
-                    </div>
-                  )}
-                  <div className="absolute top-3 right-3 bg-primary text-neutral-900 text-xs font-bold px-3 py-1 rounded-full">
-                    {formatCurrency(deal.price)}
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-5 flex flex-col flex-1">
-                  <h3 className="font-heading font-semibold text-base text-neutral-900 group-hover:text-primary-700 transition-colors">
-                    {deal.name}
-                  </h3>
-                  <p className="text-neutral-500 text-sm mt-1 line-clamp-2">
-                    {deal.description}
-                  </p>
-                  <div className="mt-3 space-y-1">
-                    {deal.items.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-xs text-neutral-600">
-                        <span className="w-1.5 h-1.5 bg-primary rounded-full" />
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                  <button className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-neutral-900 text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors">
-                    <FiShoppingCart className="w-4 h-4" />
-                    Order Now
-                  </button>
-                </div>
+          {deals.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-20 h-20 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FiTag className="w-10 h-10 text-neutral-400" />
               </div>
-            ))}
-          </div>
+              <h3 className="font-heading font-semibold text-xl text-neutral-900 mb-2">
+                No deals yet
+              </h3>
+              <p className="text-neutral-500 text-sm max-w-md mx-auto">
+                Add deals from the admin panel to see them here.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {deals.map((deal) => (
+                <div
+                  key={deal.id}
+                  onClick={handleDealClick}
+                  className="group bg-white rounded-2xl border border-neutral-200 shadow-sm hover:shadow-xl hover:border-primary-200 transition-all duration-300 overflow-hidden cursor-pointer flex flex-col"
+                >
+                  {/* Placeholder Image */}
+                  <div className="relative h-48 bg-neutral-100 flex items-center justify-center overflow-hidden">
+                    {deal.image ? (
+                      <img
+                        src={deal.image}
+                        alt={deal.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <FiTag className="w-12 h-12 text-neutral-300 mx-auto mb-2" />
+                        <span className="text-xs text-neutral-400">Add Image</span>
+                      </div>
+                    )}
+                    <div className="absolute top-3 right-3 bg-primary text-neutral-900 text-xs font-bold px-3 py-1 rounded-full">
+                      {formatCurrency(deal.price)}
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-5 flex flex-col flex-1">
+                    <h3 className="font-heading font-semibold text-base text-neutral-900 group-hover:text-primary-700 transition-colors">
+                      {deal.name}
+                    </h3>
+                    <p className="text-neutral-500 text-sm mt-1 line-clamp-2">
+                      {deal.description}
+                    </p>
+                    <div className="mt-3 space-y-1">
+                      {deal.items.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-xs text-neutral-600">
+                          <span className="w-1.5 h-1.5 bg-primary rounded-full" />
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                    <button className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-neutral-900 text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors">
+                      <FiShoppingCart className="w-4 h-4" />
+                      Order Now
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

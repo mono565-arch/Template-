@@ -31,12 +31,7 @@ import type {
   Review,
   ContactMessage,
 } from '../types'
-import type { Product, Category } from '../data'
-import {
-  menuProducts,
-  categories as defaultCategories,
-  reviews as defaultReviews,
-} from '../data'
+import type { Product, Deal } from '../data'
 
 const auth = getAuth(app)
 const db = getFirestore(app)
@@ -218,6 +213,37 @@ export const categoryService = {
       batch.update(d.ref, { count })
     })
     await batch.commit()
+  },
+}
+
+// ============================================================================
+// DEAL SERVICE
+// ============================================================================
+
+export const dealService = {
+  async getAll(): Promise<Deal[]> {
+    const snapshot = await getDocs(query(collection(db, 'deals'), orderBy('name')))
+    return snapshot.docs.map((d) => ({ ...d.data(), id: d.id } as Deal))
+  },
+
+  async getById(id: string): Promise<Deal | null> {
+    const docSnap = await getDoc(doc(db, 'deals', id))
+    return docSnap.exists() ? ({ ...docSnap.data(), id: docSnap.id } as Deal) : null
+  },
+
+  async add(deal: Omit<Deal, 'id'>): Promise<Deal> {
+    const id = 'deal_' + Date.now()
+    const newDeal = { ...deal, id } as Deal
+    await setDoc(doc(db, 'deals', id), newDeal)
+    return newDeal
+  },
+
+  async update(id: string, data: Partial<Deal>): Promise<void> {
+    await updateDoc(doc(db, 'deals', id), data as Record<string, unknown>)
+  },
+
+  async delete(id: string): Promise<void> {
+    await deleteDoc(doc(db, 'deals', id))
   },
 }
 
@@ -424,68 +450,6 @@ export const cartService = {
     }
     await setDoc(doc(db, 'carts', userId), { items: [] })
   },
-}
-
-// ============================================================================
-// SEED DATA
-// ============================================================================
-
-export async function seedData(): Promise<void> {
-  // Seed products
-  const productsSnap = await getDocs(collection(db, 'products'))
-  if (productsSnap.empty) {
-    const batch = writeBatch(db)
-    menuProducts.forEach((product) => {
-      batch.set(doc(db, 'products', product.id), product)
-    })
-    await batch.commit()
-  }
-
-  // Seed categories
-  const categoriesSnap = await getDocs(collection(db, 'categories'))
-  if (categoriesSnap.empty) {
-    const batch = writeBatch(db)
-    defaultCategories.forEach((cat) => {
-      const item: CategoryItem = {
-        id: cat.id,
-        name: cat.name,
-        icon: cat.icon,
-        count: 0,
-      }
-      batch.set(doc(db, 'categories', cat.id), item)
-    })
-    await batch.commit()
-  }
-
-  // Seed reviews
-  const reviewsSnap = await getDocs(collection(db, 'reviews'))
-  if (reviewsSnap.empty) {
-    const batch = writeBatch(db)
-    defaultReviews.forEach((review) => {
-      batch.set(doc(db, 'reviews', review.id), review)
-    })
-    await batch.commit()
-  }
-
-  // Seed default coupons
-  const couponsSnap = await getDocs(collection(db, 'coupons'))
-  if (couponsSnap.empty) {
-    const defaultCoupons: Coupon[] = [
-      { id: 'coupon-1', code: 'SAVE10', discount: 10, type: 'percentage', minOrder: 1000, enabled: true },
-      { id: 'coupon-2', code: 'WELCOME5', discount: 5, type: 'percentage', minOrder: 500, enabled: true },
-    ]
-    const batch = writeBatch(db)
-    defaultCoupons.forEach((coupon) => {
-      batch.set(doc(db, 'coupons', coupon.id), coupon)
-    })
-    await batch.commit()
-  }
-
-  // Seed settings
-  const settingsSnap = await getDoc(doc(db, 'settings', 'restaurant'))
-  if (!settingsSnap.exists()) {
-    await setDoc(doc(db, 'settings', 'restaurant'), DEFAULT_SETTINGS)
-  }
 }
 
 // Legacy export for compatibility

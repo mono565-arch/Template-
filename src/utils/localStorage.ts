@@ -50,6 +50,14 @@ onSnapshot(
 )
 
 onSnapshot(
+  query(collection(db, 'deals'), orderBy('name')),
+  (snapshot) => {
+    memoryCache[LS_KEYS.DEALS] = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))
+  },
+  () => {}
+)
+
+onSnapshot(
   query(collection(db, 'orders'), orderBy('createdAt', 'desc')),
   (snapshot) => {
     memoryCache[LS_KEYS.ORDERS] = snapshot.docs.map((d) => {

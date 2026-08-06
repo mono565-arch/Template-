@@ -70,47 +70,14 @@ export const menuCategories = ['All', 'Pizza', 'Burger', 'Wrap', 'Side Bar', 'Ic
 // ===== PIZZA SUBCATEGORIES =====
 export const pizzaSubCategories = ['Regular', 'Special', 'Signature']
 
-// ===== DEALS =====
-export const deals: Deal[] = [
-  { id: 'd1', name: 'Deal No 1', description: '2 Small Pizza + 1 Half Liter Drink', price: 1350, image: '', items: ['2 Small Pizza', '1 Half Liter Drink'] },
-  { id: 'd2', name: 'Deal No 2', description: '2 Medium Pizza + 1.5 Liter Drink', price: 2300, image: '', items: ['2 Medium Pizza', '1.5 Liter Drink'] },
-  { id: 'd3', name: 'Deal No 3', description: '2 Large Pizza + 1.5 Liter Drink', price: 3300, image: '', items: ['2 Large Pizza', '1.5 Liter Drink'] },
-  { id: 'd4', name: 'Deal No 4', description: '2 Family Pizza + 1.5 Liter Drink', price: 4400, image: '', items: ['2 Family Pizza', '1.5 Liter Drink'] },
-  { id: 'd5', name: 'Deal No 5', description: '1 Large Pizza + 10 Pcs Nuggets + 2 Zinger Burgers + 1.5 Liter Drink', price: 3000, image: '', items: ['1 Large Pizza', '10 Pcs Nuggets', '2 Zinger Burgers', '1.5 Liter Drink'] },
-  { id: 'd6', name: 'Deal No 6', description: '1 Family Pizza + 2 Zinger Burgers + 1 Large Fries + 1.5 Liter Drink', price: 3300, image: '', items: ['1 Family Pizza', '2 Zinger Burgers', '1 Large Fries', '1.5 Liter Drink'] },
-  { id: 'd7', name: 'Deal No 7', description: '2 Chicken Burgers + 1 Half Liter Drink', price: 700, image: '', items: ['2 Chicken Burgers', '1 Half Liter Drink'] },
-  { id: 'd8', name: 'Deal No 8', description: '3 Zinger Burgers + 1 Liter Drink', price: 1200, image: '', items: ['3 Zinger Burgers', '1 Liter Drink'] },
-  { id: 'd9', name: 'Deal No 9', description: '4 Zinger Burgers + 1.5 Liter Drink', price: 1600, image: '', items: ['4 Zinger Burgers', '1.5 Liter Drink'] },
-  { id: 'd10', name: 'Deal No 10', description: '6 Zinger Burgers + 1.5 Liter Drink', price: 2300, image: '', items: ['6 Zinger Burgers', '1.5 Liter Drink'] },
-  { id: 'd11', name: 'Deal No 11', description: '8 Zinger Burgers + 1.5 Liter Drink', price: 3000, image: '', items: ['8 Zinger Burgers', '1.5 Liter Drink'] },
-]
+// ===== DEALS - EMPTY, LOADED FROM FIRESTORE =====
+export const deals: Deal[] = []
 
-// ===== ICE SHAKE =====
-export const iceShakes: IceShakeItem[] = [
-  { id: 'is1', name: 'Mango', smallPrice: 180, mediumPrice: 240, largePrice: 280, image: '' },
-  { id: 'is2', name: 'Vanilla', smallPrice: 180, mediumPrice: 240, largePrice: 280, image: '' },
-  { id: 'is3', name: 'Kulfa King', smallPrice: 180, mediumPrice: 240, largePrice: 280, image: '' },
-  { id: 'is4', name: 'Tutti Fruity', smallPrice: 180, mediumPrice: 240, largePrice: 280, image: '' },
-  { id: 'is5', name: 'Caramel', smallPrice: 180, mediumPrice: 240, largePrice: 280, image: '' },
-  { id: 'is6', name: 'Chocolate', smallPrice: 180, mediumPrice: 240, largePrice: 280, image: '' },
-  { id: 'is7', name: 'Strawberry', smallPrice: 180, mediumPrice: 240, largePrice: 280, image: '' },
-  { id: 'is8', name: 'Pista Badam', smallPrice: 180, mediumPrice: 240, largePrice: 280, image: '' },
-  { id: 'is9', name: 'Pizza Saucy Special', smallPrice: 240, mediumPrice: 280, largePrice: 350, image: '' },
-]
+// ===== ICE SHAKE - EMPTY, LOADED FROM FIRESTORE =====
+export const iceShakes: IceShakeItem[] = []
 
-// ===== ICE CREAM =====
-export const iceCreams: IceCreamItem[] = [
-  { id: 'ic1', name: 'Mango', price: 350, image: '' },
-  { id: 'ic2', name: 'Vanilla', price: 350, image: '' },
-  { id: 'ic3', name: 'King Kulfa', price: 350, image: '' },
-  { id: 'ic4', name: 'Tutti Fruity', price: 350, image: '' },
-  { id: 'ic5', name: 'Caramel', price: 350, image: '' },
-  { id: 'ic6', name: 'Chocolate', price: 350, image: '' },
-  { id: 'ic7', name: 'Strawberry', price: 350, image: '' },
-  { id: 'ic8', name: 'Pista Badam', price: 350, image: '' },
-  { id: 'ic9', name: 'Pizza Saucy Special', price: 460, image: '' },
-  { id: 'ic10', name: 'Oreo Shake', price: 410, image: '' },
-]
+// ===== ICE CREAM - EMPTY, LOADED FROM FIRESTORE =====
+export const iceCreams: IceCreamItem[] = []
 
 // ===== PLACEHOLDER PRODUCTS (empty for manual editing) =====
 export const burgers: Product[] = []
@@ -118,33 +85,8 @@ export const wraps: Product[] = []
 export const sideBarItems: Product[] = []
 export const pizzas: Product[] = []
 
-// ===== REVIEWS =====
-export const reviews: ReviewData[] = [
-  {
-    id: '1',
-    name: 'Sarah Mitchell',
-    review: 'The best pizza I have ever had! The crust was perfectly crispy and the toppings were incredibly fresh. Delivery was super fast too.',
-    rating: 5,
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
-    role: 'Food Blogger',
-  },
-  {
-    id: '2',
-    name: 'Michael Chen',
-    review: 'Pizza Saucy never disappoints. Their Margherita is absolutely authentic and the quality is consistently amazing. My go-to pizza place!',
-    rating: 5,
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-    role: 'Regular Customer',
-  },
-  {
-    id: '3',
-    name: 'Emily Rodriguez',
-    review: 'Amazing flavors and great value for money. The family pack is perfect for our weekend dinners. Highly recommend the BBQ Chicken!',
-    rating: 4,
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face',
-    role: 'Verified Buyer',
-  },
-]
+// ===== REVIEWS - EMPTY, LOADED FROM FIRESTORE =====
+export const reviews: ReviewData[] = []
 
 export const whyChooseUs = [
   {

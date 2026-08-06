@@ -7,18 +7,22 @@ import {
   FiX,
   FiCheck,
 } from 'react-icons/fi'
-import { getItem, setItem, LS_KEYS } from '../utils/localStorage'
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
+import { productService } from '../services/api'
 import { addNotification } from '../utils/notifications'
 import type { Product } from '../data'
 
-const CATEGORIES = ['Pizza', 'Burger', 'Wrap', 'Side Bar', 'Ice Shake', 'Ice Cream']
+const DEFAULT_CATEGORIES = ['Pizza', 'Burger', 'Wrap', 'Side Bar', 'Ice Shake', 'Ice Cream']
 const PIZZA_SUBS = ['Regular', 'Special', 'Signature']
 
 const AdminProducts = () => {
   const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
@@ -39,14 +43,31 @@ const AdminProducts = () => {
   const [largePrice, setLargePrice] = useState('')
   const [fullPrice, setFullPrice] = useState('')
 
+  // Real-time Firestore subscription for products
   useEffect(() => {
-    loadProducts()
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'products'), orderBy('name')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => ({ ...d.data(), id: d.id })) as Product[]
+        setProducts(data)
+      }
+    )
+    return () => unsubscribe()
   }, [])
 
-  const loadProducts = () => {
-    const stored = getItem<Product[]>(LS_KEYS.PRODUCTS, [])
-    setProducts(stored)
-  }
+  // Real-time Firestore subscription for categories
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'categories'), orderBy('name')),
+      (snapshot) => {
+        const cats = snapshot.docs.map((d) => d.data().name as string)
+        if (cats.length > 0) {
+          setCategories(cats)
+        }
+      }
+    )
+    return () => unsubscribe()
+  }, [])
 
   const filteredProducts = products.filter(
     (p) =>
@@ -106,8 +127,9 @@ const AdminProducts = () => {
     resetForm()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting) return
 
     if (!formData.name || !formData.category) {
       addNotification({
@@ -156,8 +178,7 @@ const AdminProducts = () => {
       ]
     }
 
-    const productData: Product = {
-      id: editingProduct ? editingProduct.id : `prod_${Date.now()}`,
+    const productPayload: Omit<Product, 'id'> = {
       name: formData.name || '',
       description: formData.description || '',
       price: isPizza && sizes ? sizes[1].price : formData.price || 0,
@@ -171,42 +192,53 @@ const AdminProducts = () => {
       sizes: sizes,
     }
 
-    let updated: Product[]
-    if (editingProduct) {
-      updated = products.map((p) =>
-        p.id === editingProduct.id ? productData : p
-      )
-      addNotification({
-        type: 'product_updated',
-        title: 'Product Updated',
-        message: `${productData.name} has been updated successfully`,
-      })
-    } else {
-      updated = [...products, productData]
+    setIsSubmitting(true)
+    try {
+      if (editingProduct) {
+        await productService.update(editingProduct.id, productPayload)
+        addNotification({
+          type: 'product_updated',
+          title: 'Product Updated',
+          message: `${productPayload.name} has been updated successfully`,
+        })
+      } else {
+        await productService.add(productPayload)
+        addNotification({
+          type: 'product_added',
+          title: 'Product Added',
+          message: `${productPayload.name} has been added successfully`,
+        })
+      }
+      closeModal()
+    } catch (err) {
       addNotification({
         type: 'product_added',
-        title: 'Product Added',
-        message: `${productData.name} has been added successfully`,
+        title: 'Error',
+        message: 'Failed to save product. Please try again.',
       })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setItem(LS_KEYS.PRODUCTS, updated)
-    setProducts(updated)
-    closeModal()
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this product?'))
       return
     const product = products.find((p) => p.id === id)
-    const updated = products.filter((p) => p.id !== id)
-    setItem(LS_KEYS.PRODUCTS, updated)
-    setProducts(updated)
-    addNotification({
-      type: 'product_deleted',
-      title: 'Product Deleted',
-      message: product ? `${product.name} has been deleted` : 'Product has been deleted',
-    })
+    try {
+      await productService.delete(id)
+      addNotification({
+        type: 'product_deleted',
+        title: 'Product Deleted',
+        message: product ? `${product.name} has been deleted` : 'Product has been deleted',
+      })
+    } catch (err) {
+      addNotification({
+        type: 'product_deleted',
+        title: 'Error',
+        message: 'Failed to delete product. Please try again.',
+      })
+    }
   }
 
   const isPizzaCategory = formData.category === 'Pizza'
@@ -407,7 +439,7 @@ const AdminProducts = () => {
                     required
                   >
                     <option value="">Select category</option>
-                    {CATEGORIES.map((cat) => (
+                    {categories.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
                       </option>
@@ -626,7 +658,7 @@ const AdminProducts = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="btn-primary" disabled={isSubmitting}>
                   {editingProduct ? 'Update Product' : 'Add Product'}
                 </button>
               </div>

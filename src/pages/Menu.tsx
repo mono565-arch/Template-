@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FiSearch, FiShoppingCart, FiEye, FiStar, FiFilter, FiX, FiTag } from 'react-icons/fi'
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
 import ProductModal from '../components/ProductModal'
 import { useCartContext } from '../context/CartContext'
 import { formatCurrency } from '../utils/formatters'
-import { LS_KEYS, getItem } from '../utils/localStorage'
 import { menuCategories, pizzaSubCategories } from '../data'
 import type { Product, PizzaSize } from '../types'
 
@@ -22,9 +23,16 @@ const Menu = () => {
   const [activePizzaSub, setActivePizzaSub] = useState('Regular')
   const { addItem } = useCartContext()
 
+  // Real-time Firestore subscription for products
   useEffect(() => {
-    const stored = getItem<Product[]>(LS_KEYS.PRODUCTS, [])
-    setMenuProducts(stored)
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'products'), orderBy('name')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => ({ ...d.data(), id: d.id })) as Product[]
+        setMenuProducts(data)
+      }
+    )
+    return () => unsubscribe()
   }, [])
 
   useEffect(() => {

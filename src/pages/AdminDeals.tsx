@@ -5,10 +5,11 @@ import {
   FiTrash2,
   FiSearch,
   FiX,
-  FiCheck,
   FiTag,
 } from 'react-icons/fi'
-import { getItem, setItem, LS_KEYS } from '../utils/localStorage'
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
+import { dealService } from '../services/api'
 import { addNotification } from '../utils/notifications'
 import type { Deal } from '../data'
 
@@ -17,6 +18,7 @@ const AdminDeals = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [formData, setFormData] = useState<Partial<Deal>>({
     name: '',
@@ -28,14 +30,17 @@ const AdminDeals = () => {
 
   const [itemsText, setItemsText] = useState('')
 
+  // Real-time Firestore subscription for deals
   useEffect(() => {
-    loadDeals()
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'deals'), orderBy('name')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => ({ ...d.data(), id: d.id })) as Deal[]
+        setDeals(data)
+      }
+    )
+    return () => unsubscribe()
   }, [])
-
-  const loadDeals = () => {
-    const stored = getItem<Deal[]>(LS_KEYS.DEALS, [])
-    setDeals(stored)
-  }
 
   const filteredDeals = deals.filter(
     (d) =>
@@ -72,8 +77,9 @@ const AdminDeals = () => {
     resetForm()
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting) return
 
     if (!formData.name || !formData.description) {
       addNotification({
@@ -84,8 +90,7 @@ const AdminDeals = () => {
       return
     }
 
-    const dealData: Deal = {
-      id: editingDeal ? editingDeal.id : `deal_${Date.now()}`,
+    const dealPayload: Omit<Deal, 'id'> = {
       name: formData.name || '',
       description: formData.description || '',
       price: formData.price || 0,
@@ -93,42 +98,53 @@ const AdminDeals = () => {
       items: itemsText.split('\n').map(i => i.trim()).filter(Boolean),
     }
 
-    let updated: Deal[]
-    if (editingDeal) {
-      updated = deals.map((d) =>
-        d.id === editingDeal.id ? dealData : d
-      )
-      addNotification({
-        type: 'product_updated',
-        title: 'Deal Updated',
-        message: `${dealData.name} has been updated successfully`,
-      })
-    } else {
-      updated = [...deals, dealData]
+    setIsSubmitting(true)
+    try {
+      if (editingDeal) {
+        await dealService.update(editingDeal.id, dealPayload)
+        addNotification({
+          type: 'product_updated',
+          title: 'Deal Updated',
+          message: `${dealPayload.name} has been updated successfully`,
+        })
+      } else {
+        await dealService.add(dealPayload)
+        addNotification({
+          type: 'product_added',
+          title: 'Deal Added',
+          message: `${dealPayload.name} has been added successfully`,
+        })
+      }
+      closeModal()
+    } catch (err) {
       addNotification({
         type: 'product_added',
-        title: 'Deal Added',
-        message: `${dealData.name} has been added successfully`,
+        title: 'Error',
+        message: 'Failed to save deal. Please try again.',
       })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setItem(LS_KEYS.DEALS, updated)
-    setDeals(updated)
-    closeModal()
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this deal?'))
       return
     const deal = deals.find((d) => d.id === id)
-    const updated = deals.filter((d) => d.id !== id)
-    setItem(LS_KEYS.DEALS, updated)
-    setDeals(updated)
-    addNotification({
-      type: 'product_deleted',
-      title: 'Deal Deleted',
-      message: deal ? `${deal.name} has been deleted` : 'Deal has been deleted',
-    })
+    try {
+      await dealService.delete(id)
+      addNotification({
+        type: 'product_deleted',
+        title: 'Deal Deleted',
+        message: deal ? `${deal.name} has been deleted` : 'Deal has been deleted',
+      })
+    } catch (err) {
+      addNotification({
+        type: 'product_deleted',
+        title: 'Error',
+        message: 'Failed to delete deal. Please try again.',
+      })
+    }
   }
 
   return (
@@ -342,7 +358,7 @@ const AdminDeals = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="btn-primary" disabled={isSubmitting}>
                   {editingDeal ? 'Update Deal' : 'Add Deal'}
                 </button>
               </div>
