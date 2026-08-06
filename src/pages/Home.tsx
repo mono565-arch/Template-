@@ -1,44 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiArrowRight, FiStar, FiClock } from 'react-icons/fi'
+import { FiArrowRight, FiStar, FiClock, FiShoppingCart, FiTag } from 'react-icons/fi'
 import { routes } from '../constants/routes'
 import SectionTitle from '../components/SectionTitle'
 import CategoryCard from '../components/CategoryCard'
-import ProductCard from '../components/ProductCard'
 import ReviewCard from '../components/ReviewCard'
 import MapPlaceholder from '../components/MapPlaceholder'
 import { useCartContext } from '../context/CartContext'
-import { getCategories } from '../utils/categories'
 import { formatCurrency } from '../utils/formatters'
 import { getItem } from '../utils/localStorage'
 import { LS_KEYS } from '../utils/localStorage'
-import type { Product } from '../data'
+import { homeCategories, deals } from '../data'
 import type { ReviewData } from '../data'
 
 const Home = () => {
   const navigate = useNavigate()
   const { addItem } = useCartContext()
-  const [categories, setCategories] = useState(() => getCategories())
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const [reviews, setReviews] = useState<ReviewData[]>([])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCategories(getCategories())
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    const loadFeatured = () => {
-      const products = getItem<Product[]>(LS_KEYS.PRODUCTS, [])
-      const featured = products.filter((p) => p.isFeatured === true)
-      setFeaturedProducts(featured)
-    }
-    loadFeatured()
-    const interval = setInterval(loadFeatured, 2000)
-    return () => clearInterval(interval)
-  }, [])
 
   useEffect(() => {
     const loadReviews = () => {
@@ -54,27 +32,13 @@ const Home = () => {
     navigate(`${routes.MENU}?category=${encodeURIComponent(categoryName)}`)
   }
 
-  const handleAddToCart = (product: Product) => {
-    const price =
-      product.sizes && product.sizes.length > 0
-        ? product.sizes[0].price
-        : product.price
-    addItem({
-      id: product.id,
-      name: product.name,
-      price: price,
-      quantity: 1,
-      image: product.image,
-      size:
-        product.sizes && product.sizes.length > 0
-          ? product.sizes[0].size
-          : undefined,
-    })
+  const handleDealClick = (dealId: string) => {
+    navigate(`${routes.MENU}?category=Deals`)
   }
 
   return (
     <div>
-      {/* 1. Hero Section - Dark background with gradient blobs */}
+      {/* 1. Hero Section */}
       <section className="relative overflow-hidden bg-neutral-900">
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-0 right-0 w-96 h-96 bg-primary rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -146,15 +110,15 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 2. Categories - White background with container */}
+      {/* 2. Categories */}
       <section className="py-16 sm:py-20 lg:py-24 bg-white">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionTitle
             title="Browse Categories"
             subtitle="Explore our wide range of delicious food categories"
           />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((category) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+            {homeCategories.map((category) => (
               <CategoryCard
                 key={category.id}
                 icon={category.icon}
@@ -166,31 +130,67 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 3. Featured Products - Light warm background */}
+      {/* 3. Deals Section */}
       <section className="py-16 sm:py-20 lg:py-24 bg-primary-50/50">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionTitle
-            title="Featured Products"
-            subtitle="Our most popular and loved dishes, handcrafted with care"
+            title="Deals"
+            subtitle="Amazing combo deals for you and your family"
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-            {featuredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                name={product.name}
-                description={product.description}
-                price={product.price}
-                rating={product.rating}
-                image={product.image}
-                sizes={product.sizes}
-                onAddToCart={() => handleAddToCart(product)}
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {deals.map((deal) => (
+              <div
+                key={deal.id}
+                onClick={() => handleDealClick(deal.id)}
+                className="group bg-white rounded-2xl border border-neutral-200 shadow-sm hover:shadow-xl hover:border-primary-200 transition-all duration-300 overflow-hidden cursor-pointer flex flex-col"
+              >
+                {/* Placeholder Image */}
+                <div className="relative h-48 bg-neutral-100 flex items-center justify-center overflow-hidden">
+                  {deal.image ? (
+                    <img
+                      src={deal.image}
+                      alt={deal.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <FiTag className="w-12 h-12 text-neutral-300 mx-auto mb-2" />
+                      <span className="text-xs text-neutral-400">Add Image</span>
+                    </div>
+                  )}
+                  <div className="absolute top-3 right-3 bg-primary text-neutral-900 text-xs font-bold px-3 py-1 rounded-full">
+                    {formatCurrency(deal.price)}
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-5 flex flex-col flex-1">
+                  <h3 className="font-heading font-semibold text-base text-neutral-900 group-hover:text-primary-700 transition-colors">
+                    {deal.name}
+                  </h3>
+                  <p className="text-neutral-500 text-sm mt-1 line-clamp-2">
+                    {deal.description}
+                  </p>
+                  <div className="mt-3 space-y-1">
+                    {deal.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-xs text-neutral-600">
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                  <button className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-neutral-900 text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors">
+                    <FiShoppingCart className="w-4 h-4" />
+                    Order Now
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* 4. Customer Reviews - Warm background */}
+      {/* 4. Customer Reviews */}
       <section className="py-16 sm:py-20 lg:py-24 bg-secondary-50/30">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionTitle
@@ -212,7 +212,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 5. Google Maps Placeholder - White background */}
+      {/* 5. Google Maps Placeholder */}
       <section className="py-16 sm:py-20 lg:py-24 bg-white">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionTitle

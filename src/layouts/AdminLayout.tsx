@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom'
 import {
-  FiHome, FiShoppingBag, FiTag, FiUsers, FiStar,
-  FiSettings, FiLogOut, FiMenu, FiX, FiMessageSquare
+  FiHome, FiShoppingBag, FiTag, FiStar,
+  FiSettings, FiLogOut, FiMenu, FiX, FiMessageSquare, FiGift
 } from 'react-icons/fi'
 import { routes } from '../constants/routes'
 
@@ -11,16 +11,6 @@ const AdminLayout = () => {
   const navigate = useNavigate()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-
-  useEffect(() => {
-    const checkAuth = () => {
-      const adminAuth = localStorage.getItem('pizza_saucy_admin_auth')
-      if (!adminAuth) {
-        navigate('/admin-login')
-      }
-    }
-    checkAuth()
-  }, [navigate])
 
   useEffect(() => {
     const loadUnread = () => {
@@ -43,7 +33,7 @@ const AdminLayout = () => {
     { to: '/admin/messages', icon: FiMessageSquare, label: 'Messages', badge: unreadCount },
     { to: '/admin/reviews', icon: FiStar, label: 'Reviews' },
     { to: '/admin/products', icon: FiTag, label: 'Products' },
-    { to: '/admin/categories', icon: FiUsers, label: 'Categories' },
+    { to: '/admin/deals', icon: FiGift, label: 'Deals' },
     { to: '/admin/coupons', icon: FiTag, label: 'Coupons' },
     { to: '/admin/settings', icon: FiSettings, label: 'Settings' },
   ]

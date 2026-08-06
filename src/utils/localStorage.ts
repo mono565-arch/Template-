@@ -23,6 +23,7 @@ export const LS_KEYS = {
   NOTIFICATIONS: 'pizza_saucy_notifications',
   ORDER_COUNTER: 'pizza_saucy_order_counter',
   SETTINGS: 'pizza_saucy_settings',
+  DEALS: 'pizza_saucy_deals',
 } as const
 
 // In-memory cache synced with Firestore in real-time

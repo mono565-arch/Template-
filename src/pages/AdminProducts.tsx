@@ -8,16 +8,17 @@ import {
   FiCheck,
 } from 'react-icons/fi'
 import { getItem, setItem, LS_KEYS } from '../utils/localStorage'
-import { getCategories } from '../utils/categories'
 import { addNotification } from '../utils/notifications'
 import type { Product } from '../data'
+
+const CATEGORIES = ['Pizza', 'Burger', 'Wrap', 'Side Bar', 'Ice Shake', 'Ice Cream']
+const PIZZA_SUBS = ['Regular', 'Special', 'Signature']
 
 const AdminProducts = () => {
   const [products, setProducts] = useState<Product[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [categories, setCategories] = useState(() => getCategories())
 
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
@@ -26,23 +27,17 @@ const AdminProducts = () => {
     rating: 4.5,
     image: '',
     category: '',
+    subCategory: '',
     ingredients: [],
     isPopular: false,
     isAvailable: true,
-    isFeatured: false,
     sizes: undefined,
   })
 
   const [smallPrice, setSmallPrice] = useState('')
   const [mediumPrice, setMediumPrice] = useState('')
   const [largePrice, setLargePrice] = useState('')
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCategories(getCategories())
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [])
+  const [fullPrice, setFullPrice] = useState('')
 
   useEffect(() => {
     loadProducts()
@@ -67,15 +62,16 @@ const AdminProducts = () => {
       rating: 4.5,
       image: '',
       category: '',
+      subCategory: '',
       ingredients: [],
       isPopular: false,
       isAvailable: true,
-      isFeatured: false,
       sizes: undefined,
     })
     setSmallPrice('')
     setMediumPrice('')
     setLargePrice('')
+    setFullPrice('')
     setEditingProduct(null)
   }
 
@@ -91,13 +87,16 @@ const AdminProducts = () => {
       const small = product.sizes.find((s) => s.size === 'Small')
       const medium = product.sizes.find((s) => s.size === 'Medium')
       const large = product.sizes.find((s) => s.size === 'Large')
+      const full = product.sizes.find((s) => s.size === 'Full')
       setSmallPrice(small ? String(small.price) : '')
       setMediumPrice(medium ? String(medium.price) : '')
       setLargePrice(large ? String(large.price) : '')
+      setFullPrice(full ? String(full.price) : '')
     } else {
       setSmallPrice('')
       setMediumPrice('')
       setLargePrice('')
+      setFullPrice('')
     }
     setIsModalOpen(true)
   }
@@ -122,21 +121,24 @@ const AdminProducts = () => {
     const isPizza = formData.category === 'Pizza'
 
     let sizes:
-      | { size: 'Small' | 'Medium' | 'Large'; price: number }[]
+      | { size: 'Small' | 'Medium' | 'Large' | 'Full'; price: number }[]
       | undefined
 
     if (isPizza) {
       const sPrice = parseFloat(smallPrice)
       const mPrice = parseFloat(mediumPrice)
       const lPrice = parseFloat(largePrice)
+      const fPrice = parseFloat(fullPrice)
 
       if (
         isNaN(sPrice) ||
         isNaN(mPrice) ||
         isNaN(lPrice) ||
+        isNaN(fPrice) ||
         sPrice <= 0 ||
         mPrice <= 0 ||
-        lPrice <= 0
+        lPrice <= 0 ||
+        fPrice <= 0
       ) {
         addNotification({
           type: 'product_added',
@@ -150,6 +152,7 @@ const AdminProducts = () => {
         { size: 'Small', price: sPrice },
         { size: 'Medium', price: mPrice },
         { size: 'Large', price: lPrice },
+        { size: 'Full', price: fPrice },
       ]
     }
 
@@ -157,15 +160,14 @@ const AdminProducts = () => {
       id: editingProduct ? editingProduct.id : `prod_${Date.now()}`,
       name: formData.name || '',
       description: formData.description || '',
-      price:
-        isPizza && sizes ? sizes[1].price : formData.price || 0,
+      price: isPizza && sizes ? sizes[1].price : formData.price || 0,
       rating: formData.rating || 4.5,
       image: formData.image || '',
       category: formData.category || '',
+      subCategory: formData.subCategory || '',
       ingredients: formData.ingredients || [],
       isPopular: formData.isPopular || false,
       isAvailable: formData.isAvailable !== false,
-      isFeatured: formData.isFeatured || false,
       sizes: sizes,
     }
 
@@ -248,10 +250,10 @@ const AdminProducts = () => {
                   Category
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
-                  Price
+                  Sub
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
-                  Featured
+                  Price
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
                   Available
@@ -287,20 +289,12 @@ const AdminProducts = () => {
                     {product.category}
                   </td>
                   <td className="px-4 py-3 text-sm text-neutral-600">
-                    {product.sizes && product.sizes.length > 0
-                      ? `${product.sizes[0].price} - ${product.sizes[2]?.price || product.sizes[product.sizes.length - 1].price}`
-                      : product.price}
+                    {product.subCategory || '-'}
                   </td>
-                  <td className="px-4 py-3">
-                    {product.isFeatured ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
-                        <FiCheck className="w-3 h-3" /> Yes
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-neutral-100 text-neutral-500 text-xs rounded-full">
-                        <FiX className="w-3 h-3" /> No
-                      </span>
-                    )}
+                  <td className="px-4 py-3 text-sm text-neutral-600">
+                    {product.sizes && product.sizes.length > 0
+                      ? `${product.sizes[0].price} - ${product.sizes[product.sizes.length - 1].price}`
+                      : product.price}
                   </td>
                   <td className="px-4 py-3">
                     {product.isAvailable !== false ? (
@@ -406,19 +400,45 @@ const AdminProducts = () => {
                       setFormData({
                         ...formData,
                         category: e.target.value,
+                        subCategory: e.target.value === 'Pizza' ? 'Regular' : '',
                       })
                     }
                     className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     required
                   >
                     <option value="">Select category</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name}
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                {isPizzaCategory && (
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">
+                      Pizza Type *
+                    </label>
+                    <select
+                      value={formData.subCategory}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          subCategory: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      required={isPizzaCategory}
+                    >
+                      {PIZZA_SUBS.map((sub) => (
+                        <option key={sub} value={sub}>
+                          {sub}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-1">
@@ -456,10 +476,10 @@ const AdminProducts = () => {
 
                 {/* Pizza Size Prices */}
                 {isPizzaCategory && (
-                  <div className="sm:col-span-2 grid grid-cols-3 gap-4">
+                  <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-1">
-                        Small Price *
+                        Small *
                       </label>
                       <input
                         type="number"
@@ -468,13 +488,13 @@ const AdminProducts = () => {
                         value={smallPrice}
                         onChange={(e) => setSmallPrice(e.target.value)}
                         className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="e.g. 899"
+                        placeholder="899"
                         required={isPizzaCategory}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-1">
-                        Medium Price *
+                        Medium *
                       </label>
                       <input
                         type="number"
@@ -483,13 +503,13 @@ const AdminProducts = () => {
                         value={mediumPrice}
                         onChange={(e) => setMediumPrice(e.target.value)}
                         className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="e.g. 1299"
+                        placeholder="1299"
                         required={isPizzaCategory}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-neutral-700 mb-1">
-                        Large Price *
+                        Large *
                       </label>
                       <input
                         type="number"
@@ -498,7 +518,22 @@ const AdminProducts = () => {
                         value={largePrice}
                         onChange={(e) => setLargePrice(e.target.value)}
                         className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="e.g. 1699"
+                        placeholder="1699"
+                        required={isPizzaCategory}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1">
+                        Full *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={fullPrice}
+                        onChange={(e) => setFullPrice(e.target.value)}
+                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="2350"
                         required={isPizzaCategory}
                       />
                     </div>
@@ -578,23 +613,6 @@ const AdminProducts = () => {
                     />
                     <span className="text-sm text-neutral-700">
                       Available
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isFeatured || false}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          isFeatured: e.target.checked,
-                        })
-                      }
-                      className="w-4 h-4 text-primary rounded border-neutral-300 focus:ring-primary"
-                    />
-                    <span className="text-sm text-neutral-700 font-medium">
-                      Featured Product
                     </span>
                   </label>
                 </div>
