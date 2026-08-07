@@ -19,7 +19,7 @@ const About = () => {
         <div className="relative">
           <div className="aspect-square max-w-md mx-auto rounded-3xl overflow-hidden shadow-xl">
             <img
-              src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&h=600&fit=crop"
+              src="https://i.ibb.co/WvpK5NSB/wallpaper.png"
               alt="Our Kitchen"
               className="w-full h-full object-cover"
               loading="lazy"

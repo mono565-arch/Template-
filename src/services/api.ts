@@ -18,7 +18,6 @@ import {
   deleteDoc,
   query,
   orderBy,
-  where,
   Timestamp,
   writeBatch,
 } from 'firebase/firestore'
@@ -35,6 +34,17 @@ import type { Product, Deal } from '../data'
 
 const auth = getAuth(app)
 const db = getFirestore(app)
+
+// Helper: Strip undefined values from object (Firestore rejects undefined)
+const stripUndefined = (obj: Record<string, any>): Record<string, any> => {
+  const result: Record<string, any> = {}
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      result[key] = obj[key]
+    }
+  }
+  return result
+}
 
 // ============================================================================
 // AUTH SERVICE
@@ -138,7 +148,7 @@ export const userService = {
   },
 
   async update(id: string, data: Partial<User>): Promise<void> {
-    await updateDoc(doc(db, 'users', id), data as Record<string, unknown>)
+    await updateDoc(doc(db, 'users', id), stripUndefined(data))
   },
 }
 
@@ -159,13 +169,13 @@ export const productService = {
 
   async add(product: Omit<Product, 'id'>): Promise<Product> {
     const id = 'prod_' + Date.now()
-    const newProduct = { ...product, id } as Product
+    const newProduct = { ...stripUndefined(product as Record<string, any>), id } as Product
     await setDoc(doc(db, 'products', id), newProduct)
     return newProduct
   },
 
   async update(id: string, data: Partial<Product>): Promise<void> {
-    await updateDoc(doc(db, 'products', id), data as Record<string, unknown>)
+    await updateDoc(doc(db, 'products', id), stripUndefined(data))
   },
 
   async delete(id: string): Promise<void> {
@@ -198,7 +208,7 @@ export const categoryService = {
   },
 
   async update(id: string, data: Partial<CategoryItem>): Promise<void> {
-    await updateDoc(doc(db, 'categories', id), data as Record<string, unknown>)
+    await updateDoc(doc(db, 'categories', id), stripUndefined(data))
   },
 
   async delete(id: string): Promise<void> {
@@ -233,13 +243,13 @@ export const dealService = {
 
   async add(deal: Omit<Deal, 'id'>): Promise<Deal> {
     const id = 'deal_' + Date.now()
-    const newDeal = { ...deal, id } as Deal
+    const newDeal = { ...stripUndefined(deal as Record<string, any>), id } as Deal
     await setDoc(doc(db, 'deals', id), newDeal)
     return newDeal
   },
 
   async update(id: string, data: Partial<Deal>): Promise<void> {
-    await updateDoc(doc(db, 'deals', id), data as Record<string, unknown>)
+    await updateDoc(doc(db, 'deals', id), stripUndefined(data))
   },
 
   async delete(id: string): Promise<void> {
@@ -305,7 +315,7 @@ export const couponService = {
   },
 
   async update(id: string, data: Partial<Coupon>): Promise<void> {
-    await updateDoc(doc(db, 'coupons', id), data as Record<string, unknown>)
+    await updateDoc(doc(db, 'coupons', id), stripUndefined(data))
   },
 
   async delete(id: string): Promise<void> {
@@ -338,7 +348,7 @@ export const reviewService = {
   },
 
   async update(id: string, data: Partial<Review>): Promise<void> {
-    await updateDoc(doc(db, 'reviews', id), data as Record<string, unknown>)
+    await updateDoc(doc(db, 'reviews', id), stripUndefined(data))
   },
 
   async delete(id: string): Promise<void> {
@@ -384,7 +394,7 @@ export interface RestaurantSettings {
   phone: string
   email: string
   address: string
-  mapUrl?: string        // ✅ ADDED
+  mapUrl?: string
   deliveryFee: number
   minOrderAmount: number
   taxRate: number
@@ -395,7 +405,7 @@ const DEFAULT_SETTINGS: RestaurantSettings = {
   phone: '+92 300 1234567',
   email: 'info@pizzasaucy.com',
   address: '123 Pizza Lane, Gulberg III, Lahore',
-  mapUrl: 'https://maps.google.com/?q=123+Pizza+Lane+Lahore',  // ✅ ADDED
+  mapUrl: 'https://maps.google.com/?q=123+Pizza+Lane+Lahore',
   deliveryFee: 150,
   minOrderAmount: 500,
   taxRate: 0,
@@ -412,7 +422,7 @@ export const settingsService = {
   },
 
   async update(data: Partial<RestaurantSettings>): Promise<void> {
-    await updateDoc(doc(db, 'settings', 'restaurant'), data)
+    await updateDoc(doc(db, 'settings', 'restaurant'), stripUndefined(data))
   },
 }
 

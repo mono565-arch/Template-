@@ -10,13 +10,42 @@ export interface User {
 
 export type PizzaSize = 'Small' | 'Medium' | 'Large'
 
+export interface ProductSize {
+  size: string
+  price: number
+}
+
+export interface Product {
+  id: string
+  name: string
+  description: string
+  price: number
+  rating: number
+  image: string
+  category: string
+  subCategory?: string
+  ingredients: string[]
+  isPopular: boolean
+  isAvailable: boolean
+  sizes?: ProductSize[]
+}
+
+export interface Deal {
+  id: string
+  name: string
+  description: string
+  price: number
+  image: string
+  items: string[]
+}
+
 export interface CartItem {
   id: string
   name: string
   price: number
   quantity: number
   image?: string
-  size?: PizzaSize
+  size?: PizzaSize | string
 }
 
 export interface MenuItem {

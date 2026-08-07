@@ -4,27 +4,29 @@ import { FiUser, FiMail, FiLock, FiUserPlus, FiEye, FiEyeOff } from 'react-icons
 import { routes } from '../constants/routes'
 import { authService } from '../services/api'
 
-// ✅ User-friendly error mapper
-const getFriendlyError = (err: unknown): string => {
+const getFriendlyError = (err: unknown): { message: string; type: 'error' | 'warning' } => {
   if (err instanceof Error) {
     const msg = err.message.toLowerCase()
     if (msg.includes('email-already-in-use')) {
-      return 'This email is already registered. Please login instead.'
+      return { message: 'This email is already registered. Please login instead.', type: 'warning' }
     }
     if (msg.includes('weak-password')) {
-      return 'Password is too weak. Use at least 6 characters.'
+      return { message: 'Password is too weak. Use at least 6 characters.', type: 'error' }
     }
     if (msg.includes('invalid-email')) {
-      return 'Please enter a valid email address.'
+      return { message: 'Please enter a valid email address.', type: 'error' }
     }
     if (msg.includes('network-request-failed')) {
-      return 'Network error. Please check your internet connection.'
+      return { message: 'Network error. Please check your internet connection.', type: 'warning' }
     }
     if (msg.includes('too-many-requests')) {
-      return 'Too many attempts. Please try again later.'
+      return { message: 'Too many attempts. Please try again later.', type: 'warning' }
+    }
+    if (msg.includes('invalid-credential') || msg.includes('configuration-not-found')) {
+      return { message: 'Server configuration error. Please contact support.', type: 'error' }
     }
   }
-  return 'Something went wrong. Please try again.'
+  return { message: 'Something went wrong. Please try again.', type: 'error' }
 }
 
 const Register = () => {
@@ -36,13 +38,13 @@ const Register = () => {
     confirmPassword: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [generalError, setGeneralError] = useState<{ message: string; type: 'error' | 'warning' } | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const validate = () => {
     const newErrors: Record<string, string> = {}
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required'
-    }
+    if (!formData.name.trim()) newErrors.name = 'Name is required'
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required'
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -62,22 +64,24 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (validate()) {
-      try {
-        await authService.register(formData.email, formData.password, formData.name)
-        navigate(routes.PROFILE)
-      } catch (err: unknown) {
-        // ✅ Use friendly error instead of raw Firebase message
-        const friendlyMessage = getFriendlyError(err)
-        setErrors({ ...errors, general: friendlyMessage })
-      }
+    setGeneralError(null)
+    if (!validate()) return
+
+    setLoading(true)
+    try {
+      await authService.register(formData.email, formData.password, formData.name)
+      // ✅ User localStorage mein save karo
+      localStorage.setItem('pizza_saucy_user', JSON.stringify({ email: formData.email, name: formData.name }))
+      navigate(routes.PROFILE)
+    } catch (err: unknown) {
+      setGeneralError(getFriendlyError(err))
+    } finally {
+      setLoading(false)
     }
   }
 
   const clearError = (field: string) => {
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: '' })
-    }
+    if (errors[field]) setErrors({ ...errors, [field]: '' })
   }
 
   return (
@@ -88,26 +92,24 @@ const Register = () => {
           <p className="text-neutral-600 text-sm">Join Pizza Saucy today</p>
         </div>
 
-        {errors.general && (
-          <p className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg">{errors.general}</p>
+        {generalError && (
+          <div className={`text-sm text-center p-3 rounded-lg ${
+            generalError.type === 'warning' ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
+          }`}>
+            {generalError.message}
+          </div>
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-neutral-700 mb-1">
-              Full Name
-            </label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Full Name</label>
             <div className="relative">
               <FiUser className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <input
                 type="text"
-                id="name"
                 value={formData.name}
-                onChange={(e) => {
-                  setFormData({ ...formData, name: e.target.value })
-                  clearError('name')
-                }}
-                className={`input pl-10 ${errors.name ? 'border-red-400 focus:ring-red-400' : ''}`}
+                onChange={(e) => { setFormData({ ...formData, name: e.target.value }); clearError('name') }}
+                className={`input pl-10 ${errors.name ? 'border-red-400' : ''}`}
                 placeholder="Muhammad Ammad"
               />
             </div>
@@ -115,20 +117,14 @@ const Register = () => {
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-1">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Email</label>
             <div className="relative">
               <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <input
                 type="email"
-                id="email"
                 value={formData.email}
-                onChange={(e) => {
-                  setFormData({ ...formData, email: e.target.value })
-                  clearError('email')
-                }}
-                className={`input pl-10 ${errors.email ? 'border-red-400 focus:ring-red-400' : ''}`}
+                onChange={(e) => { setFormData({ ...formData, email: e.target.value }); clearError('email') }}
+                className={`input pl-10 ${errors.email ? 'border-red-400' : ''}`}
                 placeholder="your@email.com"
               />
             </div>
@@ -136,68 +132,46 @@ const Register = () => {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-1">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Password</label>
             <div className="relative">
               <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <input
                 type={showPassword ? 'text' : 'password'}
-                id="password"
                 value={formData.password}
-                onChange={(e) => {
-                  setFormData({ ...formData, password: e.target.value })
-                  clearError('password')
-                }}
-                className={`input pl-10 pr-10 ${errors.password ? 'border-red-400 focus:ring-red-400' : ''}`}
+                onChange={(e) => { setFormData({ ...formData, password: e.target.value }); clearError('password') }}
+                className={`input pl-10 pr-10 ${errors.password ? 'border-red-400' : ''}`}
                 placeholder="Create a password"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+                {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
               </button>
             </div>
             {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 mb-1">
-              Confirm Password
-            </label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Confirm Password</label>
             <div className="relative">
               <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <input
                 type="password"
-                id="confirmPassword"
                 value={formData.confirmPassword}
-                onChange={(e) => {
-                  setFormData({ ...formData, confirmPassword: e.target.value })
-                  clearError('confirmPassword')
-                }}
-                className={`input pl-10 ${errors.confirmPassword ? 'border-red-400 focus:ring-red-400' : ''}`}
+                onChange={(e) => { setFormData({ ...formData, confirmPassword: e.target.value }); clearError('confirmPassword') }}
+                className={`input pl-10 ${errors.confirmPassword ? 'border-red-400' : ''}`}
                 placeholder="Confirm your password"
               />
             </div>
-            {errors.confirmPassword && (
-              <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
-            )}
+            {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
           </div>
 
-          <button type="submit" className="btn-primary w-full">
-            <FiUserPlus className="w-4 h-4" />
-            Create Account
+          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
+            {loading ? 'Creating Account...' : <><FiUserPlus className="w-4 h-4" /> Create Account</>}
           </button>
         </form>
 
         <div className="text-center text-sm text-neutral-600">
           Already have an account?{' '}
-          <Link to={routes.LOGIN} className="text-primary-600 font-medium hover:underline">
-            Sign in
-          </Link>
+          <Link to={routes.LOGIN} className="text-primary-600 font-medium hover:underline">Sign in</Link>
         </div>
       </div>
     </div>

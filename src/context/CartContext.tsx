@@ -1,13 +1,18 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
-import { cartService, authService } from '../services/api'
-import type { CartItem } from '../types'
-import type { User } from '../types'
+import { createContext, useContext, useState, ReactNode } from 'react'
+import type { Product, ProductSize } from '../types'
+
+export interface CartItem extends Product {
+  selectedSize?: ProductSize
+  cartPrice: number
+  quantity: number
+}
 
 interface CartContextType {
-  items: CartItem[]
-  addItem: (item: CartItem) => void
-  removeItem: (id: string) => void
-  updateQuantity: (id: string, quantity: number) => void
+  cartItems: CartItem[]
+  addToCart: (item: CartItem) => void
+  addItem: (item: CartItem) => void      // ✅ Alias for Home.tsx
+  removeFromCart: (id: string, size?: string) => void
+  updateQuantity: (id: string, quantity: number, size?: string) => void
   clearCart: () => void
   totalItems: number
   totalPrice: number
@@ -15,107 +20,74 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
 
-const CART_STORAGE_KEY = 'pizza_saucy_cart'
-
-const getStoredCart = (): CartItem[] => {
-  try {
-    const stored = localStorage.getItem(CART_STORAGE_KEY)
-    if (stored) return JSON.parse(stored)
-  } catch {
-    // ignore parse errors
-  }
-  return []
-}
-
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [items, setItems] = useState<CartItem[]>(getStoredCart)
-  const [user, setUser] = useState<User | null>(null)
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
 
-  // Load user and their cart from Firebase
-  useEffect(() => {
-    const unsubscribe = authService.onAuthChange((firebaseUser) => {
-      setUser(firebaseUser)
-      if (firebaseUser) {
-        // Load cart from Firestore for logged-in user
-        cartService.getCart(firebaseUser.id).then((cartItems) => {
-          if (cartItems && cartItems.length > 0) {
-            setItems(cartItems)
-          }
-        }).catch(() => {
-          // Fallback to localStorage on error
-        })
-      }
-    })
-    return () => unsubscribe()
-  }, [])
-
-  // Persist cart to Firestore or localStorage
-  useEffect(() => {
-    if (user) {
-      cartService.saveCart(user.id, items).catch(() => {
-        // Fallback to localStorage on Firestore error
-        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
-      })
-    } else {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
-    }
-  }, [items, user])
-
-  const addItem = useCallback((item: CartItem) => {
-    setItems((prev) => {
-      const existing = prev.find((i) => i.id === item.id && i.size === item.size)
-      if (existing) {
+  const addToCart = (item: CartItem) => {
+    setCartItems((prev) => {
+      const exists = prev.find(
+        (i) => i.id === item.id && i.selectedSize?.size === item.selectedSize?.size
+      )
+      if (exists) {
         return prev.map((i) =>
-          i.id === item.id && i.size === item.size
-            ? { ...i, quantity: i.quantity + item.quantity }
+          i.id === item.id && i.selectedSize?.size === item.selectedSize?.size
+            ? { ...i, quantity: i.quantity + 1 }
             : i
         )
       }
       return [...prev, item]
     })
-  }, [])
+  }
 
-  const removeItem = useCallback((id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id))
-  }, [])
+  const removeFromCart = (id: string, size?: string) => {
+    setCartItems((prev) =>
+      prev.filter((i) => !(i.id === id && i.selectedSize?.size === size))
+    )
+  }
 
-  const updateQuantity = useCallback((id: string, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number, size?: string) => {
     if (quantity <= 0) {
-      setItems((prev) => prev.filter((item) => item.id !== id))
+      removeFromCart(id, size)
       return
     }
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, quantity } : item))
+    setCartItems((prev) =>
+      prev.map((i) =>
+        i.id === id && i.selectedSize?.size === size ? { ...i, quantity } : i
+      )
     )
-  }, [])
+  }
 
-  const clearCart = useCallback(() => {
-    setItems([])
-    if (user) {
-      cartService.clearCart(user.id).catch(() => {
-        localStorage.removeItem(CART_STORAGE_KEY)
-      })
-    } else {
-      localStorage.removeItem(CART_STORAGE_KEY)
-    }
-  }, [user])
+  const clearCart = () => setCartItems([])
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0)
-  const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const totalItems = cartItems.reduce((sum, i) => sum + i.quantity, 0)
+  const totalPrice = cartItems.reduce((sum, i) => sum + i.cartPrice * i.quantity, 0)
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice }}
+      value={{
+        cartItems,
+        addToCart,
+        addItem: addToCart,        // ✅ Alias
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        totalItems,
+        totalPrice,
+      }}
     >
       {children}
     </CartContext.Provider>
   )
 }
 
-export const useCartContext = (): CartContextType => {
+export const useCart = () => {
   const context = useContext(CartContext)
-  if (!context) {
-    throw new Error('useCartContext must be used within a CartProvider')
-  }
+  if (!context) throw new Error('useCart must be used within CartProvider')
+  return context
+}
+
+export const useCartContext = () => {
+  const context = useContext(CartContext)
+  if (!context) throw new Error('useCartContext must be used within CartProvider')
   return context
 }

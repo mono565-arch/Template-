@@ -6,19 +6,19 @@ import {
   FiSearch,
   FiX,
   FiCheck,
+  FiImage,
 } from 'react-icons/fi'
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
 import { db } from '../firebase/firebase'
 import { productService } from '../services/api'
 import { addNotification } from '../utils/notifications'
-import type { Product } from '../data'
+import type { Product, ProductSize } from '../types'
 
-const DEFAULT_CATEGORIES = ['Pizza', 'Burger', 'Wrap', 'Side Bar', 'Ice Shake', 'Ice Cream']
 const PIZZA_SUBS = ['Regular', 'Special', 'Signature']
 
 const AdminProducts = () => {
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
+  const [categories, setCategories] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -38,33 +38,28 @@ const AdminProducts = () => {
     sizes: undefined,
   })
 
-  const [smallPrice, setSmallPrice] = useState('')
-  const [mediumPrice, setMediumPrice] = useState('')
-  const [largePrice, setLargePrice] = useState('')
-  const [fullPrice, setFullPrice] = useState('')
+  const [sizesList, setSizesList] = useState<ProductSize[]>([])
 
-  // Real-time Firestore subscription for products
   useEffect(() => {
     const unsubscribe = onSnapshot(
       query(collection(db, 'products'), orderBy('name')),
       (snapshot) => {
         const data = snapshot.docs.map((d) => ({ ...d.data(), id: d.id })) as Product[]
         setProducts(data)
-      }
+      },
+      (err) => console.error('Products error:', err)
     )
     return () => unsubscribe()
   }, [])
 
-  // Real-time Firestore subscription for categories
   useEffect(() => {
     const unsubscribe = onSnapshot(
       query(collection(db, 'categories'), orderBy('name')),
       (snapshot) => {
         const cats = snapshot.docs.map((d) => d.data().name as string)
-        if (cats.length > 0) {
-          setCategories(cats)
-        }
-      }
+        setCategories(cats)
+      },
+      (err) => console.error('Categories error:', err)
     )
     return () => unsubscribe()
   }, [])
@@ -89,10 +84,7 @@ const AdminProducts = () => {
       isAvailable: true,
       sizes: undefined,
     })
-    setSmallPrice('')
-    setMediumPrice('')
-    setLargePrice('')
-    setFullPrice('')
+    setSizesList([])
     setEditingProduct(null)
   }
 
@@ -104,21 +96,7 @@ const AdminProducts = () => {
   const openEditModal = (product: Product) => {
     setEditingProduct(product)
     setFormData({ ...product })
-    if (product.sizes && product.sizes.length > 0) {
-      const small = product.sizes.find((s) => s.size === 'Small')
-      const medium = product.sizes.find((s) => s.size === 'Medium')
-      const large = product.sizes.find((s) => s.size === 'Large')
-      const full = product.sizes.find((s) => s.size === 'Full')
-      setSmallPrice(small ? String(small.price) : '')
-      setMediumPrice(medium ? String(medium.price) : '')
-      setLargePrice(large ? String(large.price) : '')
-      setFullPrice(full ? String(full.price) : '')
-    } else {
-      setSmallPrice('')
-      setMediumPrice('')
-      setLargePrice('')
-      setFullPrice('')
-    }
+    setSizesList(product.sizes || [])
     setIsModalOpen(true)
   }
 
@@ -127,94 +105,98 @@ const AdminProducts = () => {
     resetForm()
   }
 
+  const addSize = () => setSizesList([...sizesList, { size: '', price: 0 }])
+  
+  const removeSize = (index: number) => setSizesList(sizesList.filter((_, i) => i !== index))
+  
+  const updateSize = (index: number, field: 'size' | 'price', value: string) => {
+    const updated = [...sizesList]
+    if (field === 'price') {
+      const num = value === '' ? 0 : parseFloat(value)
+      updated[index].price = isNaN(num) ? 0 : num
+    } else {
+      updated[index].size = value
+    }
+    setSizesList(updated)
+  }
+
+  // 🔥 FIX: Remove undefined values before sending to Firestore
+  const buildPayload = (): Record<string, any> => {
+    const validSizes = sizesList.filter((s) => s.size.trim() !== '' && s.price > 0)
+
+    const payload: Record<string, any> = {
+      name: (formData.name || '').trim(),
+      description: (formData.description || '').trim(),
+      price: validSizes.length > 0 ? validSizes[0].price : (formData.price || 0),
+      rating: formData.rating ?? 4.5,
+      image: (formData.image || '').trim(),
+      category: formData.category || '',
+      subCategory: formData.subCategory || '',
+      ingredients: formData.ingredients || [],
+      isPopular: formData.isPopular ?? false,
+      isAvailable: formData.isAvailable ?? true,
+    }
+
+    if (validSizes.length > 0) {
+      payload.sizes = validSizes
+    }
+
+    if (!editingProduct) {
+      payload.createdAt = new Date().toISOString()
+    }
+
+    return payload
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isSubmitting) return
 
-    if (!formData.name || !formData.category) {
-      addNotification({
-        type: 'product_added',
-        title: 'Validation Error',
-        message: 'Name and category are required',
+    if (!formData.name?.trim() || !formData.category) {
+      addNotification({ 
+        type: 'error', 
+        title: 'Validation Error', 
+        message: 'Name and category are required' 
       })
       return
     }
 
-    const isPizza = formData.category === 'Pizza'
-
-    let sizes:
-      | { size: 'Small' | 'Medium' | 'Large' | 'Full'; price: number }[]
-      | undefined
-
-    if (isPizza) {
-      const sPrice = parseFloat(smallPrice)
-      const mPrice = parseFloat(mediumPrice)
-      const lPrice = parseFloat(largePrice)
-      const fPrice = parseFloat(fullPrice)
-
-      if (
-        isNaN(sPrice) ||
-        isNaN(mPrice) ||
-        isNaN(lPrice) ||
-        isNaN(fPrice) ||
-        sPrice <= 0 ||
-        mPrice <= 0 ||
-        lPrice <= 0 ||
-        fPrice <= 0
-      ) {
-        addNotification({
-          type: 'product_added',
-          title: 'Validation Error',
-          message: 'Please enter valid prices for all pizza sizes',
-        })
-        return
-      }
-
-      sizes = [
-        { size: 'Small', price: sPrice },
-        { size: 'Medium', price: mPrice },
-        { size: 'Large', price: lPrice },
-        { size: 'Full', price: fPrice },
-      ]
-    }
-
-    const productPayload: Omit<Product, 'id'> = {
-      name: formData.name || '',
-      description: formData.description || '',
-      price: isPizza && sizes ? sizes[1].price : formData.price || 0,
-      rating: formData.rating || 4.5,
-      image: formData.image || '',
-      category: formData.category || '',
-      subCategory: formData.subCategory || '',
-      ingredients: formData.ingredients || [],
-      isPopular: formData.isPopular || false,
-      isAvailable: formData.isAvailable !== false,
-      sizes: sizes,
+    const validSizes = sizesList.filter((s) => s.size.trim() !== '' && s.price > 0)
+    if (validSizes.length === 0 && (!formData.price || formData.price <= 0)) {
+      addNotification({ 
+        type: 'error', 
+        title: 'Validation Error', 
+        message: 'Please enter a valid price or add at least one size' 
+      })
+      return
     }
 
     setIsSubmitting(true)
     try {
+      const payload = buildPayload()
+
       if (editingProduct) {
-        await productService.update(editingProduct.id, productPayload)
-        addNotification({
-          type: 'product_updated',
-          title: 'Product Updated',
-          message: `${productPayload.name} has been updated successfully`,
+        await productService.update(editingProduct.id, payload)
+        addNotification({ 
+          type: 'success', 
+          title: 'Product Updated', 
+          message: `${payload.name} updated successfully!` 
         })
       } else {
-        await productService.add(productPayload)
-        addNotification({
-          type: 'product_added',
-          title: 'Product Added',
-          message: `${productPayload.name} has been added successfully`,
+        await productService.add(payload as any)
+        addNotification({ 
+          type: 'success', 
+          title: 'Product Added', 
+          message: `${payload.name} added successfully!` 
         })
       }
       closeModal()
-    } catch (err) {
-      addNotification({
-        type: 'product_added',
-        title: 'Error',
-        message: 'Failed to save product. Please try again.',
+    } catch (err: any) {
+      console.error('Save error:', err)
+      addNotification({ 
+        type: 'error', 
+        title: 'Save Failed', 
+        message: err?.message || 'Could not save product. Check console for details.' 
       })
     } finally {
       setIsSubmitting(false)
@@ -222,22 +204,12 @@ const AdminProducts = () => {
   }
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this product?'))
-      return
-    const product = products.find((p) => p.id === id)
+    if (!window.confirm('Delete this product?')) return
     try {
       await productService.delete(id)
-      addNotification({
-        type: 'product_deleted',
-        title: 'Product Deleted',
-        message: product ? `${product.name} has been deleted` : 'Product has been deleted',
-      })
-    } catch (err) {
-      addNotification({
-        type: 'product_deleted',
-        title: 'Error',
-        message: 'Failed to delete product. Please try again.',
-      })
+      addNotification({ type: 'success', title: 'Deleted', message: 'Product removed.' })
+    } catch (err: any) {
+      addNotification({ type: 'error', title: 'Error', message: err?.message || 'Delete failed.' })
     }
   }
 
@@ -250,24 +222,16 @@ const AdminProducts = () => {
           <h1 className="text-2xl font-bold text-neutral-900">Products</h1>
           <p className="text-neutral-500 mt-1">Manage your menu items</p>
         </div>
-        <button
-          onClick={openAddModal}
-          className="btn-primary flex items-center justify-center gap-2"
-        >
-          <FiPlus className="w-4 h-4" />
-          Add Product
+        <button onClick={openAddModal} className="btn-primary flex items-center justify-center gap-2">
+          <FiPlus className="w-4 h-4" /> Add Product
         </button>
       </div>
 
       <div className="relative">
         <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-        <input
-          type="text"
-          placeholder="Search products..."
-          value={searchQuery}
+        <input type="text" placeholder="Search products..." value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-        />
+          className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
@@ -275,24 +239,12 @@ const AdminProducts = () => {
           <table className="w-full">
             <thead className="bg-neutral-50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
-                  Product
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
-                  Category
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
-                  Sub
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
-                  Price
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">
-                  Available
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-semibold text-neutral-700">
-                  Actions
-                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">Product</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">Category</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">Sub</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">Price</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-700">Available</th>
+                <th className="px-4 py-3 text-right text-sm font-semibold text-neutral-700">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -300,29 +252,15 @@ const AdminProducts = () => {
                 <tr key={product.id} className="hover:bg-neutral-50">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      {product.image && (
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-10 h-10 rounded-lg object-cover"
-                        />
-                      )}
+                      {product.image && <img src={product.image} alt={product.name} className="w-10 h-10 rounded-lg object-cover" />}
                       <div>
-                        <p className="font-medium text-neutral-900">
-                          {product.name}
-                        </p>
-                        <p className="text-xs text-neutral-500 line-clamp-1">
-                          {product.description}
-                        </p>
+                        <p className="font-medium text-neutral-900">{product.name}</p>
+                        <p className="text-xs text-neutral-500 line-clamp-1">{product.description}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-neutral-600">
-                    {product.category}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-neutral-600">
-                    {product.subCategory || '-'}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-neutral-600">{product.category}</td>
+                  <td className="px-4 py-3 text-sm text-neutral-600">{product.subCategory || '-'}</td>
                   <td className="px-4 py-3 text-sm text-neutral-600">
                     {product.sizes && product.sizes.length > 0
                       ? `${product.sizes[0].price} - ${product.sizes[product.sizes.length - 1].price}`
@@ -341,16 +279,10 @@ const AdminProducts = () => {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEditModal(product)}
-                        className="p-2 text-neutral-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                      >
+                      <button onClick={() => openEditModal(product)} className="p-2 text-neutral-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
                         <FiEdit2 className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="p-2 text-neutral-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
+                      <button onClick={() => handleDelete(product.id)} className="p-2 text-neutral-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                         <FiTrash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -358,32 +290,19 @@ const AdminProducts = () => {
                 </tr>
               ))}
               {filteredProducts.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-neutral-500"
-                  >
-                    No products found
-                  </td>
-                </tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-neutral-500">No products found</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-neutral-100">
-              <h2 className="text-xl font-bold text-neutral-900">
-                {editingProduct ? 'Edit Product' : 'Add Product'}
-              </h2>
-              <button
-                onClick={closeModal}
-                className="p-2 text-neutral-400 hover:text-neutral-600 rounded-lg transition-colors"
-              >
+              <h2 className="text-xl font-bold text-neutral-900">{editingProduct ? 'Edit Product' : 'Add Product'}</h2>
+              <button onClick={closeModal} className="p-2 text-neutral-400 hover:text-neutral-600 rounded-lg transition-colors">
                 <FiX className="w-5 h-5" />
               </button>
             </div>
@@ -391,275 +310,128 @@ const AdminProducts = () => {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Product Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Product Name *</label>
+                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" required />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        description: e.target.value,
-                      })
-                    }
-                    rows={3}
-                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+                  <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={3} className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Category *
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        category: e.target.value,
-                        subCategory: e.target.value === 'Pizza' ? 'Regular' : '',
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    required
-                  >
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Category *</label>
+                  <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value, subCategory: e.target.value === 'Pizza' ? 'Regular' : '' })}
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" required>
                     <option value="">Select category</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
+                    {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>
 
                 {isPizzaCategory && (
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">
-                      Pizza Type *
-                    </label>
-                    <select
-                      value={formData.subCategory}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          subCategory: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      required={isPizzaCategory}
-                    >
-                      {PIZZA_SUBS.map((sub) => (
-                        <option key={sub} value={sub}>
-                          {sub}
-                        </option>
-                      ))}
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Pizza Type *</label>
+                    <select value={formData.subCategory} onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
+                      className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" required={isPizzaCategory}>
+                      {PIZZA_SUBS.map((sub) => <option key={sub} value={sub}>{sub}</option>)}
                     </select>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Rating
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="5"
-                    value={formData.rating}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        rating: parseFloat(e.target.value),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Rating</label>
+                  <input type="number" step="0.1" min="0" max="5" value={formData.rating}
+                    onChange={(e) => setFormData({ ...formData, rating: parseFloat(e.target.value) })}
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" />
                 </div>
 
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    <FiImage className="inline w-4 h-4 mr-1" />
                     Image URL
                   </label>
                   <input
                     type="url"
                     value={formData.image}
-                    onChange={(e) =>
-                      setFormData({ ...formData, image: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                    placeholder="https://res.cloudinary.com/.../image.jpg"
                     className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
+                  <p className="text-xs text-neutral-400 mt-1">
+                    Paste Cloudinary/Imgur URL. Leave empty if no image.
+                  </p>
+                  {formData.image && (
+                    <div className="mt-2">
+                      <img src={formData.image} alt="Preview" className="w-20 h-20 rounded-lg object-cover border border-neutral-200" 
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                    </div>
+                  )}
                 </div>
 
-                {/* Pizza Size Prices */}
-                {isPizzaCategory && (
-                  <div className="sm:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1">
-                        Small *
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={smallPrice}
-                        onChange={(e) => setSmallPrice(e.target.value)}
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="899"
-                        required={isPizzaCategory}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1">
-                        Medium *
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={mediumPrice}
-                        onChange={(e) => setMediumPrice(e.target.value)}
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="1299"
-                        required={isPizzaCategory}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1">
-                        Large *
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={largePrice}
-                        onChange={(e) => setLargePrice(e.target.value)}
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="1699"
-                        required={isPizzaCategory}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-700 mb-1">
-                        Full *
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={fullPrice}
-                        onChange={(e) => setFullPrice(e.target.value)}
-                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="2350"
-                        required={isPizzaCategory}
-                      />
-                    </div>
+                <div className="sm:col-span-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-neutral-700">Sizes & Prices</label>
+                    <button type="button" onClick={addSize} className="text-xs flex items-center gap-1 text-primary hover:text-primary-700 font-medium">
+                      <FiPlus className="w-3 h-3" /> Add Size
+                    </button>
                   </div>
-                )}
+                  {sizesList.length === 0 && <p className="text-xs text-neutral-400 mb-2">No sizes added. Product will use single price.</p>}
+                  <div className="space-y-2">
+                    {sizesList.map((sizeItem, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input type="text" placeholder="Size (e.g. Small)" value={sizeItem.size}
+                          onChange={(e) => updateSize(index, 'size', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm" />
+                        <input type="number" placeholder="Price" min="0" value={sizeItem.price || ''}
+                          onChange={(e) => updateSize(index, 'price', e.target.value)}
+                          className="w-28 px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm" />
+                        <button type="button" onClick={() => removeSize(index)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <FiTrash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-                {/* Single Price for non-Pizza */}
-                {!isPizzaCategory && (
+                {sizesList.length === 0 && (
                   <div>
-                    <label className="block text-sm font-medium text-neutral-700 mb-1">
-                      Price *
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={formData.price || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          price: parseFloat(e.target.value) || 0,
-                        })
-                      }
+                    <label className="block text-sm font-medium text-neutral-700 mb-1">Price *</label>
+                    <input type="number" min="0" step="1" value={formData.price || ''}
+                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
                       className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                      required={!isPizzaCategory}
-                    />
+                      required={sizesList.length === 0} />
                   </div>
                 )}
 
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Ingredients (comma separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={(formData.ingredients || []).join(', ')}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        ingredients: e.target.value
-                          .split(',')
-                          .map((i) => i.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Ingredients (comma separated)</label>
+                  <input type="text" value={(formData.ingredients || []).join(', ')}
+                    onChange={(e) => setFormData({ ...formData, ingredients: e.target.value.split(',').map((i) => i.trim()).filter(Boolean) })}
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" />
                 </div>
 
                 <div className="sm:col-span-2 flex flex-wrap gap-4">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isPopular || false}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          isPopular: e.target.checked,
-                        })
-                      }
-                      className="w-4 h-4 text-primary rounded border-neutral-300 focus:ring-primary"
-                    />
+                    <input type="checkbox" checked={formData.isPopular || false}
+                      onChange={(e) => setFormData({ ...formData, isPopular: e.target.checked })}
+                      className="w-4 h-4 text-primary rounded border-neutral-300 focus:ring-primary" />
                     <span className="text-sm text-neutral-700">Popular</span>
                   </label>
-
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isAvailable !== false}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          isAvailable: e.target.checked,
-                        })
-                      }
-                      className="w-4 h-4 text-primary rounded border-neutral-300 focus:ring-primary"
-                    />
-                    <span className="text-sm text-neutral-700">
-                      Available
-                    </span>
+                    <input type="checkbox" checked={formData.isAvailable !== false}
+                      onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
+                      className="w-4 h-4 text-primary rounded border-neutral-300 focus:ring-primary" />
+                    <span className="text-sm text-neutral-700">Available</span>
                   </label>
                 </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="px-4 py-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                  {editingProduct ? 'Update Product' : 'Add Product'}
+                <button type="button" onClick={closeModal} className="px-4 py-2 text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors">Cancel</button>
+                <button type="submit" className="btn-primary flex items-center gap-2" disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving...' : editingProduct ? 'Update Product' : 'Add Product'}
                 </button>
               </div>
             </form>

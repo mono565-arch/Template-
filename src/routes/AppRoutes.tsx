@@ -19,19 +19,35 @@ import AdminCoupons from '../pages/AdminCoupons'
 import AdminSettings from '../pages/AdminSettings'
 import AdminMessages from '../pages/AdminMessages'
 import AdminLogin from '../pages/AdminLogin'
-import ChangePassword from '../pages/ChangePassword'  // ✅ ADDED
+import ChangePassword from '../pages/ChangePassword'
 import NotFound from '../pages/NotFound'
 
-// Admin auth guard - blocks ALL admin routes if not logged in
+const isUserLoggedIn = () => {
+  return localStorage.getItem('pizza_saucy_user') !== null
+}
+
+const isAdminLoggedIn = () => {
+  return localStorage.getItem('pizza_saucy_admin_auth') === 'true'
+}
+
+// Customer auth guard
+const RequireAuth = () => {
+  return isUserLoggedIn() ? <Outlet /> : <Navigate to="/login" replace />
+}
+
+// Redirect logged-in users away from login/register
+const RedirectIfAuth = () => {
+  return isUserLoggedIn() ? <Navigate to="/profile" replace /> : <Outlet />
+}
+
+// Admin auth guard
 const RequireAdminAuth = () => {
-  const isAdmin = localStorage.getItem('pizza_saucy_admin_auth') === 'true'
-  return isAdmin ? <Outlet /> : <Navigate to="/admin-login" replace />
+  return isAdminLoggedIn() ? <Outlet /> : <Navigate to="/admin-login" replace />
 }
 
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* Main Layout Routes */}
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
@@ -39,15 +55,21 @@ const AppRoutes = () => {
         <Route path="/contact" element={<Contact />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<Checkout />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/profile" element={<Profile />} />
+        
+        {/* Auth pages - redirect to profile if already logged in */}
+        <Route element={<RedirectIfAuth />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+        </Route>
+
+        {/* Protected customer routes */}
+        <Route element={<RequireAuth />}>
+          <Route path="/profile" element={<Profile />} />
+        </Route>
       </Route>
 
-      {/* Admin Login (public) */}
       <Route path="/admin-login" element={<AdminLogin />} />
 
-      {/* Protected Admin Routes - ALL wrapped in RequireAdminAuth */}
       <Route element={<RequireAdminAuth />}>
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<Admin />} />
@@ -58,11 +80,10 @@ const AppRoutes = () => {
           <Route path="/admin/messages" element={<AdminMessages />} />
           <Route path="/admin/coupons" element={<AdminCoupons />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
-          <Route path="/admin/change-password" element={<ChangePassword />} />  // ✅ ADDED
+          <Route path="/admin/change-password" element={<ChangePassword />} />
         </Route>
       </Route>
 
-      {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   )

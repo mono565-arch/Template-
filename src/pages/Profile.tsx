@@ -14,10 +14,11 @@ const Profile = () => {
   const [user, setUser] = useState<{ name: string; email: string; phone?: string; photo?: string } | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Load user from Firebase Auth + Firestore
     const unsubscribe = authService.onAuthChange((firebaseUser) => {
+      setLoading(false)
       if (firebaseUser) {
         setUser({
           name: firebaseUser.name,
@@ -27,12 +28,21 @@ const Profile = () => {
         })
       } else {
         setUser(null)
+        navigate(routes.LOGIN)
       }
     })
     const storedOrders = getItem<Order[]>(LS_KEYS.ORDERS, [])
     setOrders(storedOrders)
     return () => unsubscribe()
-  }, [])
+  }, [navigate])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
 
   const updateAuthStorage = async (updatedUser: Partial<User>) => {
     const currentUser = await authService.getCurrentUser()
@@ -45,7 +55,6 @@ const Profile = () => {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     const reader = new FileReader()
     reader.onloadend = () => {
       const base64 = reader.result as string
@@ -56,29 +65,20 @@ const Profile = () => {
 
   const handleEditStart = () => {
     if (user) {
-      setEditForm({
-        name: user.name || '',
-        email: user.email || '',
-        phone: user.phone || ''
-      })
+      setEditForm({ name: user.name || '', email: user.email || '', phone: user.phone || '' })
     }
     setIsEditing(true)
   }
 
   const handleEditSave = () => {
-    updateAuthStorage({
-      name: editForm.name,
-      email: editForm.email,
-      phone: editForm.phone
-    })
+    updateAuthStorage({ name: editForm.name, email: editForm.email, phone: editForm.phone })
     setIsEditing(false)
   }
 
-  const handleEditCancel = () => {
-    setIsEditing(false)
-  }
+  const handleEditCancel = () => setIsEditing(false)
 
   const handleLogout = async () => {
+    localStorage.removeItem('pizza_saucy_user')
     await authService.logout()
     navigate(routes.LOGIN)
   }
@@ -87,15 +87,12 @@ const Profile = () => {
     <div className='space-y-8 lg:space-y-12'>
       <section className='text-center space-y-4 pt-4'>
         <h1 className='section-title'>My Profile</h1>
-        <p className='section-subtitle max-w-2xl mx-auto'>
-          View your order history and account details.
-        </p>
+        <p className='section-subtitle max-w-2xl mx-auto'>View your order history and account details.</p>
       </section>
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12'>
         <div className='lg:col-span-1'>
           <div className='card p-6 lg:p-8 space-y-6 sticky top-24'>
             <div className='text-center'>
-              {/* Profile Photo */}
               <div className='relative w-24 h-24 mx-auto mb-4'>
                 <div className='w-24 h-24 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden'>
                   {user?.photo ? (
@@ -104,46 +101,21 @@ const Profile = () => {
                     <FiUser className='w-12 h-12 text-primary-600' />
                   )}
                 </div>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className='absolute bottom-0 right-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center hover:bg-primary-700 transition-colors shadow-md'
-                  title="Change photo"
-                >
+                <button onClick={() => fileInputRef.current?.click()}
+                  className='absolute bottom-0 right-0 w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center hover:bg-primary-700 transition-colors shadow-md'>
                   <FiCamera className='w-4 h-4' />
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoChange}
-                  className='hidden'
-                />
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className='hidden' />
               </div>
 
-              {/* Name / Email */}
               {isEditing ? (
                 <div className='space-y-3'>
-                  <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Name"
-                    className='w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500'
-                  />
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="Email"
-                    className='w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500'
-                  />
-                  <input
-                    type="tel"
-                    value={editForm.phone}
-                    onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
-                    placeholder="Phone"
-                    className='w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500'
-                  />
+                  <input type="text" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="Name" className='w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500' />
+                  <input type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="Email" className='w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500' />
+                  <input type="tel" value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="Phone" className='w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500' />
                   <div className='flex gap-2 justify-center'>
                     <button onClick={handleEditSave} className='btn-primary text-xs px-4 py-2 flex items-center gap-1'>
                       <FiCheck className='w-3 h-3' /> Save
@@ -158,10 +130,7 @@ const Profile = () => {
                   <h2 className='font-heading font-semibold text-xl text-neutral-900'>{user?.name || 'Guest'}</h2>
                   <p className='text-neutral-500 text-sm mt-1'>{user?.email || 'No email'}</p>
                   {user?.phone && <p className='text-neutral-500 text-sm'>{user.phone}</p>}
-                  <button
-                    onClick={handleEditStart}
-                    className='mt-3 text-primary-600 text-xs flex items-center gap-1 mx-auto hover:underline'
-                  >
+                  <button onClick={handleEditStart} className='mt-3 text-primary-600 text-xs flex items-center gap-1 mx-auto hover:underline'>
                     <FiEdit2 className='w-3 h-3' /> Edit Profile
                   </button>
                 </>
@@ -182,9 +151,7 @@ const Profile = () => {
                 <span className='font-semibold text-green-600'>{orders.filter(o => o.status === 'completed').length}</span>
               </div>
             </div>
-            <button onClick={handleLogout} className='btn-outline w-full text-sm'>
-              Logout
-            </button>
+            <button onClick={handleLogout} className='btn-outline w-full text-sm'>Logout</button>
           </div>
         </div>
         <div className='lg:col-span-2 space-y-6'>
@@ -196,9 +163,7 @@ const Profile = () => {
               </div>
               <h3 className='font-heading font-semibold text-lg text-neutral-900'>No orders yet</h3>
               <p className='text-neutral-600 text-sm'>You have not placed any orders yet.</p>
-              <button onClick={() => navigate(routes.MENU)} className='btn-primary'>
-                Browse Menu
-              </button>
+              <button onClick={() => navigate(routes.MENU)} className='btn-primary'>Browse Menu</button>
             </div>
           ) : (
             <div className='space-y-4'>
