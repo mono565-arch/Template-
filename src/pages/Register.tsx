@@ -4,6 +4,29 @@ import { FiUser, FiMail, FiLock, FiUserPlus, FiEye, FiEyeOff } from 'react-icons
 import { routes } from '../constants/routes'
 import { authService } from '../services/api'
 
+// ✅ User-friendly error mapper
+const getFriendlyError = (err: unknown): string => {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase()
+    if (msg.includes('email-already-in-use')) {
+      return 'This email is already registered. Please login instead.'
+    }
+    if (msg.includes('weak-password')) {
+      return 'Password is too weak. Use at least 6 characters.'
+    }
+    if (msg.includes('invalid-email')) {
+      return 'Please enter a valid email address.'
+    }
+    if (msg.includes('network-request-failed')) {
+      return 'Network error. Please check your internet connection.'
+    }
+    if (msg.includes('too-many-requests')) {
+      return 'Too many attempts. Please try again later.'
+    }
+  }
+  return 'Something went wrong. Please try again.'
+}
+
 const Register = () => {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
@@ -44,8 +67,9 @@ const Register = () => {
         await authService.register(formData.email, formData.password, formData.name)
         navigate(routes.PROFILE)
       } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'An account with this email already exists'
-        setErrors({ ...errors, general: errorMessage })
+        // ✅ Use friendly error instead of raw Firebase message
+        const friendlyMessage = getFriendlyError(err)
+        setErrors({ ...errors, general: friendlyMessage })
       }
     }
   }
@@ -84,7 +108,7 @@ const Register = () => {
                   clearError('name')
                 }}
                 className={`input pl-10 ${errors.name ? 'border-red-400 focus:ring-red-400' : ''}`}
-                placeholder="John Doe"
+                placeholder="Muhammad Ammad"
               />
             </div>
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}

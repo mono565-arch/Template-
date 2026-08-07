@@ -181,7 +181,7 @@ const Checkout = () => {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className={`input pl-10 ${errors.name ? 'border-red-400 focus:ring-red-400' : ''}`}
-                    placeholder="John Doe"
+                    placeholder="Muhammad Ammad"
                   />
                 </div>
                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}

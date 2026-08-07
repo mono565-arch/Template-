@@ -19,6 +19,7 @@ import AdminCoupons from '../pages/AdminCoupons'
 import AdminSettings from '../pages/AdminSettings'
 import AdminMessages from '../pages/AdminMessages'
 import AdminLogin from '../pages/AdminLogin'
+import ChangePassword from '../pages/ChangePassword'  // ✅ ADDED
 import NotFound from '../pages/NotFound'
 
 // Admin auth guard - blocks ALL admin routes if not logged in
@@ -57,6 +58,7 @@ const AppRoutes = () => {
           <Route path="/admin/messages" element={<AdminMessages />} />
           <Route path="/admin/coupons" element={<AdminCoupons />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
+          <Route path="/admin/change-password" element={<ChangePassword />} />  // ✅ ADDED
         </Route>
       </Route>
 

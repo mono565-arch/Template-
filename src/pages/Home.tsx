@@ -172,7 +172,6 @@ const Home = () => {
                   onClick={handleDealClick}
                   className="group bg-white rounded-2xl border border-neutral-200 shadow-sm hover:shadow-xl hover:border-primary-200 transition-all duration-300 overflow-hidden cursor-pointer flex flex-col"
                 >
-                  {/* Placeholder Image */}
                   <div className="relative h-48 bg-neutral-100 flex items-center justify-center overflow-hidden">
                     {deal.image ? (
                       <img
@@ -190,8 +189,6 @@ const Home = () => {
                       {formatCurrency(deal.price)}
                     </div>
                   </div>
-
-                  {/* Content */}
                   <div className="p-5 flex flex-col flex-1">
                     <h3 className="font-heading font-semibold text-base text-neutral-900 group-hover:text-primary-700 transition-colors">
                       {deal.name}
@@ -241,7 +238,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 5. Google Maps Placeholder */}
+      {/* 5. Google Maps - DYNAMIC */}
       <section className="py-16 sm:py-20 lg:py-24 bg-white">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionTitle

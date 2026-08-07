@@ -384,6 +384,7 @@ export interface RestaurantSettings {
   phone: string
   email: string
   address: string
+  mapUrl?: string        // ✅ ADDED
   deliveryFee: number
   minOrderAmount: number
   taxRate: number
@@ -394,6 +395,7 @@ const DEFAULT_SETTINGS: RestaurantSettings = {
   phone: '+92 300 1234567',
   email: 'info@pizzasaucy.com',
   address: '123 Pizza Lane, Gulberg III, Lahore',
+  mapUrl: 'https://maps.google.com/?q=123+Pizza+Lane+Lahore',  // ✅ ADDED
   deliveryFee: 150,
   minOrderAmount: 500,
   taxRate: 0,

@@ -1,257 +1,197 @@
-import { useState } from 'react'
-import {
-  FiSave,
-  FiMapPin,
-  FiPhone,
-  FiMail,
-  FiClock,
-  FiFacebook,
-  FiInstagram,
-} from 'react-icons/fi'
+import { useState, useEffect } from 'react'
+import { useSettings } from '../hooks/useSettings'
+import { FiSave, FiLoader, FiRotateCcw, FiCheckCircle } from 'react-icons/fi'
 
 const AdminSettings = () => {
-  const [settings, setSettings] = useState({
-    restaurantName: 'Pizza Saucy',
-    phone: '+92 (42) 123-4567',
-    email: 'hello@pizzasaucy.com',
-    address: '123 Pizza Lane, Gulberg III, Lahore, Pakistan',
-    mapUrl: '',
-    facebook: 'https://facebook.com/pizzasaucy',
-    instagram: 'https://instagram.com/pizzasaucy',
-    whatsapp: 'https://wa.me/923001234567',
-    openingHours: `Mon - Thu: 10:00 AM - 10:00 PM
-Fri - Sat: 10:00 AM - 11:00 PM
-Sunday: 11:00 AM - 9:00 PM`,
-  })
-
+  const { settings, loading, saving, updateSettings } = useSettings()
+  const [form, setForm] = useState(settings)
   const [saved, setSaved] = useState(false)
 
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  useEffect(() => {
+    setForm(settings)
+  }, [settings])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === 'deliveryFee' || name === 'minOrderAmount' || name === 'taxRate'
+        ? Number(value)
+        : value,
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const success = await updateSettings({
+      name: form.name,
+      phone: form.phone,
+      email: form.email,
+      address: form.address,
+      mapUrl: form.mapUrl,        // ✅ ADDED
+      deliveryFee: form.deliveryFee,
+      minOrderAmount: form.minOrderAmount,
+      taxRate: form.taxRate,
+    })
+    if (success) {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <FiLoader className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-3xl mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between">
-        <h2 className="font-heading font-semibold text-lg">
-          Settings
-        </h2>
-
-        <button
-          onClick={handleSave}
-          className="btn-primary flex items-center gap-2 text-sm py-2 px-4"
-        >
-          <FiSave className="w-4 h-4" />
-          {saved ? 'Saved!' : 'Save Changes'}
-        </button>
+        <h1 className="text-2xl font-bold text-neutral-900">Restaurant Settings</h1>
+        {saved && (
+          <span className="flex items-center gap-2 text-green-600 text-sm font-medium">
+            <FiCheckCircle /> Saved successfully!
+          </span>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Restaurant Info */}
-        <div className="bg-white rounded-xl p-6 border border-neutral-200 space-y-4">
-          <h3 className="font-heading font-semibold text-base">
-            Restaurant Information
-          </h3>
-
+      <form onSubmit={handleSubmit} className="card p-6 lg:p-8 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">
               Restaurant Name
             </label>
-
             <input
               type="text"
-              value={settings.restaurantName}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  restaurantName: e.target.value,
-                })
-              }
-              className="input"
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              className="input w-full"
+              required
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Phone
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+              Phone Number
             </label>
-
-            <div className="relative">
-              <FiPhone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-
-              <input
-                type="text"
-                value={settings.phone}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    phone: e.target.value,
-                  })
-                }
-                className="input pl-9"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Email
-            </label>
-
-            <div className="relative">
-              <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-
-              <input
-                type="email"
-                value={settings.email}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    email: e.target.value,
-                  })
-                }
-                className="input pl-9"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Address
-            </label>
-
-            <div className="relative">
-              <FiMapPin className="absolute left-3 top-3 w-4 h-4 text-neutral-400" />
-
-              <textarea
-                rows={2}
-                value={settings.address}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    address: e.target.value,
-                  })
-                }
-                className="input pl-9 resize-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Social Links */}
-        <div className="bg-white rounded-xl p-6 border border-neutral-200 space-y-4">
-          <h3 className="font-heading font-semibold text-base">
-            Social Links
-          </h3>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Facebook
-            </label>
-
-            <div className="relative">
-              <FiFacebook className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-
-              <input
-                type="url"
-                value={settings.facebook}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    facebook: e.target.value,
-                  })
-                }
-                className="input pl-9"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Instagram
-            </label>
-
-            <div className="relative">
-              <FiInstagram className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-
-              <input
-                type="url"
-                value={settings.instagram}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    instagram: e.target.value,
-                  })
-                }
-                className="input pl-9"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              WhatsApp
-            </label>
-
             <input
-              type="url"
-              value={settings.whatsapp}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  whatsapp: e.target.value,
-                })
-              }
-              className="input"
+              type="tel"
+              name="phone"
+              value={form.phone}
+              onChange={handleChange}
+              className="input w-full"
+              required
             />
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Google Map URL
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+              Email Address
             </label>
-
             <input
-              type="url"
-              value={settings.mapUrl}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  mapUrl: e.target.value,
-                })
-              }
-              className="input"
-              placeholder="https://maps.google.com/..."
+              type="email"
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+              className="input w-full"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+              Delivery Fee (PKR)
+            </label>
+            <input
+              type="number"
+              name="deliveryFee"
+              value={form.deliveryFee}
+              onChange={handleChange}
+              className="input w-full"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+              Minimum Order (PKR)
+            </label>
+            <input
+              type="number"
+              name="minOrderAmount"
+              value={form.minOrderAmount}
+              onChange={handleChange}
+              className="input w-full"
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+              Tax Rate (%)
+            </label>
+            <input
+              type="number"
+              name="taxRate"
+              value={form.taxRate}
+              onChange={handleChange}
+              className="input w-full"
+              min={0}
+              step={0.01}
             />
           </div>
         </div>
 
-        {/* Opening Hours */}
-        <div className="bg-white rounded-xl p-6 border border-neutral-200 space-y-4 lg:col-span-2">
-          <h3 className="font-heading font-semibold text-base">
-            Opening Hours
-          </h3>
-
-          <div className="relative">
-            <FiClock className="absolute left-3 top-3 w-4 h-4 text-neutral-400" />
-
-            <textarea
-              rows={4}
-              value={settings.openingHours}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  openingHours: e.target.value,
-                })
-              }
-              className="input pl-9 resize-none"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+            Address
+          </label>
+          <textarea
+            name="address"
+            value={form.address}
+            onChange={handleChange}
+            rows={3}
+            className="input w-full resize-none"
+            required
+          />
         </div>
 
-      </div>
+        {/* ✅ ADDED: Google Maps URL Field */}
+        <div>
+          <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+            Google Maps URL
+          </label>
+          <input
+            type="url"
+            name="mapUrl"
+            value={form.mapUrl || ''}
+            onChange={handleChange}
+            className="input w-full"
+            placeholder="https://maps.google.com/?q=..."
+          />
+          <p className="text-xs text-neutral-400 mt-1">
+            Google Maps se location share karke link paste karo
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4 pt-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="btn-primary flex items-center gap-2 disabled:opacity-60"
+          >
+            {saving ? <FiLoader className="w-4 h-4 animate-spin" /> : <FiSave className="w-4 h-4" />}
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setForm(settings)}
+            className="px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-600 border border-neutral-200 hover:bg-neutral-50 transition-colors flex items-center gap-2"
+          >
+            <FiRotateCcw className="w-4 h-4" />
+            Reset
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

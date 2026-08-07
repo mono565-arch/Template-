@@ -65,9 +65,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link to={routes.HOME} className="flex items-center gap-2" onClick={closeMobileMenu}>
-            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-neutral-900 font-bold text-lg">🍕</span>
-            </div>
+          <img src="/logo.png" alt="Pizza Saucy" className="w-10 h-10 object-contain" />
             <span className="font-heading font-bold text-xl text-neutral-900">
               Pizza<span className="text-primary-600">Saucy</span>
             </span>

@@ -56,9 +56,7 @@ const AdminLayout = () => {
       >
         <div className="p-6">
           <Link to={routes.HOME} className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-neutral-900 font-bold text-lg">🍕</span>
-            </div>
+          <img src="/logo.png" alt="Pizza Saucy" className="w-10 h-10 object-contain rounded-full" />
             <span className="font-heading font-bold text-xl">
               Pizza<span className="text-primary">Saucy</span>
             </span>

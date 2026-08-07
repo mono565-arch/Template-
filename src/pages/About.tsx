@@ -111,7 +111,7 @@ const About = () => {
         </div>
       </section>
 
-      {/* Map Placeholder */}
+      {/* Map - DYNAMIC */}
       <section>
         <SectionTitle
           title="Visit Our Restaurant"

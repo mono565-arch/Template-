@@ -2,14 +2,33 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiLock, FiUser, FiLogIn } from 'react-icons/fi'
 
+const ADMIN_KEY = 'pizza_saucy_admin_password'
+
 const AdminLogin = () => {
   const [credentials, setCredentials] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
+  // Get stored password (default: admin123)
+  const getStoredPassword = (): string => {
+    const stored = localStorage.getItem(ADMIN_KEY)
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        return parsed.password || parsed
+      } catch {
+        return stored
+      }
+    }
+    return 'admin123' // default
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (credentials.username === 'admin' && credentials.password === 'admin123') {
+    
+    const storedPassword = getStoredPassword()
+    
+    if (credentials.username === 'admin' && credentials.password === storedPassword) {
       localStorage.setItem('pizza_saucy_admin_auth', 'true')
       navigate('/admin')
     } else {
@@ -50,7 +69,7 @@ const AdminLogin = () => {
                 value={credentials.password}
                 onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
                 className="input pl-10"
-                placeholder="admin123"
+                placeholder="Enter password"
               />
             </div>
           </div>

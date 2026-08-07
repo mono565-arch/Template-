@@ -1,15 +1,17 @@
 import { Link } from 'react-router-dom'
 import { FiFacebook, FiInstagram, FiPhone, FiMail, FiMapPin, FiShield } from 'react-icons/fi'
 import { routes } from '../constants/routes'
+import { useSettings } from '../hooks/useSettings'
 
-// Social URLs - can be changed in admin settings later
 const socialUrls = {
-  facebook: 'https://facebook.com/pizzasaucy',
-  instagram: 'https://instagram.com/pizzasaucy',
-  whatsapp: 'https://wa.me/923001234567',
+  facebook: 'https://facebook.com/pizzasaucy.officaial',
+  instagram: 'https://instagram.com/pizzasaucy.official',
+  whatsapp: 'https://wa.me/923060135555',
 }
 
 const Footer = () => {
+  const { settings } = useSettings()
+
   const quickLinks = [
     { to: routes.HOME, label: 'Home' },
     { to: routes.ABOUT, label: 'About Us' },
@@ -31,11 +33,9 @@ const Footer = () => {
           {/* Brand */}
           <div className="space-y-4">
             <Link to={routes.HOME} className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                <span className="text-neutral-900 font-bold text-lg">🍕</span>
-              </div>
+            <img src="/logo.png" alt="Pizza Saucy" className="w-10 h-10 object-contain" />
               <span className="font-heading font-bold text-xl text-white">
-                Pizza<span className="text-primary">Saucy</span>
+                {settings.name}
               </span>
             </Link>
             <p className="text-sm text-neutral-400 leading-relaxed">
@@ -106,23 +106,21 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Contact Info */}
+          {/* Contact Info - DYNAMIC */}
           <div className="space-y-4">
             <h3 className="font-heading font-semibold text-white text-lg">Contact Us</h3>
             <ul className="space-y-3">
               <li className="flex items-start gap-3">
                 <FiMapPin className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                <span className="text-sm text-neutral-400">
-                  123 Pizza Lane, Gulberg III, Lahore, Pakistan
-                </span>
+                <span className="text-sm text-neutral-400">{settings.address}</span>
               </li>
               <li className="flex items-center gap-3">
                 <FiPhone className="w-5 h-5 text-primary shrink-0" />
-                <span className="text-sm text-neutral-400">+92 (42) 123-4567</span>
+                <span className="text-sm text-neutral-400">{settings.phone}</span>
               </li>
               <li className="flex items-center gap-3">
                 <FiMail className="w-5 h-5 text-primary shrink-0" />
-                <span className="text-sm text-neutral-400">hello@pizzasaucy.com</span>
+                <span className="text-sm text-neutral-400">{settings.email}</span>
               </li>
             </ul>
           </div>
@@ -131,12 +129,12 @@ const Footer = () => {
         {/* Copyright */}
         <div className="mt-12 pt-8 border-t border-neutral-800 text-center">
           <p className="text-sm text-neutral-500">
-            &copy; {new Date().getFullYear()} Pizza Saucy. All rights reserved.
+            &copy; {new Date().getFullYear()} {settings.name}. All rights reserved.
           </p>
         </div>
       </div>
 
-      {/* Admin Panel Link - Bottom Right */}
+      {/* Admin Panel Link */}
       <Link
         to="/admin-login"
         className="fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 bg-neutral-800/90 backdrop-blur-sm text-neutral-300 text-xs font-medium rounded-full border border-neutral-700 hover:bg-primary hover:text-neutral-900 hover:border-primary transition-all shadow-lg"

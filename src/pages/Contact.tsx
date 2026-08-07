@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { FiPhone, FiMail, FiMapPin, FiClock, FiSend, FiCheckCircle, FiStar } from 'react-icons/fi'
 import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
 import { addNotification } from '../utils/notifications'
+import { useSettings } from '../hooks/useSettings'
 import type { Review } from '../types'
 
 const Contact = () => {
+  const { settings } = useSettings()
   const [submitted, setSubmitted] = useState(false)
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
   const [activeTab, setActiveTab] = useState<'contact' | 'review'>('contact')
@@ -134,18 +136,30 @@ const Contact = () => {
 
       {activeTab === 'contact' ? (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12">
-          {/* Contact Info - Left Side */}
+          {/* Contact Info - Left Side - DYNAMIC */}
           <div className="lg:col-span-2 space-y-6">
             <div className="card p-6 lg:p-8 space-y-6">
               <h2 className="font-heading font-semibold text-xl text-neutral-900">Get in Touch</h2>
               <div className="space-y-5">
+                {/* ✅ ADDED: View on Map link */}
                 <div className="flex items-start gap-4">
                   <div className="w-11 h-11 bg-primary-100 rounded-xl flex items-center justify-center shrink-0">
                     <FiMapPin className="w-5 h-5 text-primary-600" />
                   </div>
                   <div>
                     <h3 className="font-medium text-neutral-900 text-sm">Address</h3>
-                    <p className="text-neutral-600 text-sm mt-0.5">123 Pizza Lane, Food District<br/>Lahore, Punjab 54000, Pakistan</p>
+                    <p className="text-neutral-600 text-sm mt-0.5">{settings.address}</p>
+                    {settings.mapUrl && (
+                      <a
+                        href={settings.mapUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline mt-1.5 font-medium"
+                      >
+                        <FiMapPin className="w-3 h-3" />
+                        View on Google Maps →
+                      </a>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -154,7 +168,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="font-medium text-neutral-900 text-sm">Phone</h3>
-                    <p className="text-neutral-600 text-sm mt-0.5">+92 (42) 123-4567</p>
+                    <p className="text-neutral-600 text-sm mt-0.5">{settings.phone}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -163,7 +177,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <h3 className="font-medium text-neutral-900 text-sm">Email</h3>
-                    <p className="text-neutral-600 text-sm mt-0.5">hello@pizzasaucy.com</p>
+                    <p className="text-neutral-600 text-sm mt-0.5">{settings.email}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -208,7 +222,7 @@ const Contact = () => {
                         value={contactForm.name}
                         onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
                         className="input"
-                        placeholder="John Doe"
+                        placeholder="Muhammad Ammad"
                         required
                       />
                     </div>
@@ -222,7 +236,7 @@ const Contact = () => {
                         value={contactForm.email}
                         onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                         className="input"
-                        placeholder="john@example.com"
+                        placeholder="madi@example.com"
                         required
                       />
                     </div>
@@ -237,7 +251,7 @@ const Contact = () => {
                       value={contactForm.phone}
                       onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
                       className="input"
-                      placeholder="+92 300 1234567"
+                      placeholder={settings.phone}
                     />
                   </div>
                   <div>
@@ -254,10 +268,7 @@ const Contact = () => {
                       required
                     ></textarea>
                   </div>
-                  <button
-                    type="submit"
-                    className="btn-primary w-full"
-                  >
+                  <button type="submit" className="btn-primary w-full">
                     <FiSend className="w-4 h-4" />
                     Send Message
                   </button>
