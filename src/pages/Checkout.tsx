@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FiArrowLeft, FiCheckCircle, FiTag, FiX, FiTruck, FiMapPin, FiPhone, FiUser, FiFileText } from 'react-icons/fi'
+import { collection, addDoc } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
 import { routes } from '../constants/routes'
 import { useCartContext } from '../context/CartContext'
 import { formatCurrency } from '../utils/formatters'
-import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
-import { generateOrderNumber } from '../utils/orders'
+import { LS_KEYS, getItem } from '../utils/localStorage'
 import { addNotification } from '../utils/notifications'
 
 interface Coupon {
@@ -15,6 +16,17 @@ interface Coupon {
   type: 'percentage' | 'fixed'
   minOrder: number
   enabled: boolean
+}
+
+// 🔥 Helper: Firestore mein undefined values nahi jaani chahiye
+function cleanForFirestore(obj: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = value
+    }
+  }
+  return cleaned
 }
 
 const Checkout = () => {
@@ -81,30 +93,43 @@ const Checkout = () => {
     setCouponError('')
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (validateForm()) {
-      const newOrderNumber = generateOrderNumber()
-      setOrderNumber(newOrderNumber)
-      const newOrder = {
-        id: newOrderNumber,
-        items: items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.image,
-          size: item.size,
-        })),
-        total: finalTotal,
-        status: 'pending' as const,
-        createdAt: new Date().toISOString(),
-        deliveryAddress: formData.address,
-        customerName: formData.name,
-        customerPhone: formData.phone,
-      }
-      const existingOrders = getItem<typeof newOrder[]>(LS_KEYS.ORDERS, [])
-      setItem(LS_KEYS.ORDERS, [newOrder, ...existingOrders])
+    if (!validateForm()) return
+
+    const newOrderNumber = 'ORD-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase()
+    setOrderNumber(newOrderNumber)
+
+    // ✅ Saaf data banayein — undefined values ko null/empty mein convert
+    const orderItems = items.map((item) =>
+      cleanForFirestore({
+        id: item.id ?? null,
+        name: item.name ?? '',
+        price: item.price ?? 0,
+        quantity: item.quantity ?? 1,
+        image: item.image ?? null,
+        size: item.size ?? null,
+      })
+    )
+
+    const newOrder = cleanForFirestore({
+      orderNumber: newOrderNumber,
+      items: orderItems,
+      total: finalTotal,
+      subtotal: totalPrice,
+      deliveryFee: deliveryFee,
+      discount: discountAmount,
+      couponCode: appliedCoupon?.code ?? null,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      deliveryAddress: formData.address.trim(),
+      customerName: formData.name.trim(),
+      customerPhone: formData.phone.trim(),
+      notes: formData.notes.trim() || null,
+    })
+
+    try {
+      await addDoc(collection(db, 'orders'), newOrder)
 
       addNotification({
         type: 'order',
@@ -115,6 +140,9 @@ const Checkout = () => {
 
       setOrderPlaced(true)
       clearCart()
+    } catch (err) {
+      console.error('Order save error:', err)
+      alert('Order place karne mein error aaya. Dobara try karo.')
     }
   }
 
@@ -255,7 +283,6 @@ const Checkout = () => {
           <div className="card p-6 space-y-5 sticky top-24">
             <h2 className="font-heading font-semibold text-lg text-neutral-900">Order Summary</h2>
 
-            {/* Items */}
             <div className="space-y-3 max-h-60 overflow-y-auto">
               {items.map((item) => (
                 <div key={item.id} className="flex items-center justify-between text-sm">

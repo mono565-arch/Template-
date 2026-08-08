@@ -9,9 +9,11 @@ export interface CartItem extends Product {
 
 interface CartContextType {
   cartItems: CartItem[]
+  items: CartItem[]              // ✅ Alias for Cart.tsx
   addToCart: (item: CartItem) => void
-  addItem: (item: CartItem) => void      // ✅ Alias for Home.tsx
+  addItem: (item: CartItem) => void
   removeFromCart: (id: string, size?: string) => void
+  removeItem: (id: string, size?: string) => void  // ✅ Alias for Cart.tsx
   updateQuantity: (id: string, quantity: number, size?: string) => void
   clearCart: () => void
   totalItems: number
@@ -66,9 +68,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     <CartContext.Provider
       value={{
         cartItems,
+        items: cartItems,              // ✅ Alias
         addToCart,
-        addItem: addToCart,        // ✅ Alias
+        addItem: addToCart,            // ✅ Alias
         removeFromCart,
+        removeItem: removeFromCart,    // ✅ Alias
         updateQuantity,
         clearCart,
         totalItems,

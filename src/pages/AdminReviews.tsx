@@ -1,38 +1,60 @@
 import { useState, useEffect } from 'react'
-import { FiStar, FiTrash2, FiRefreshCw } from 'react-icons/fi'
+import { FiStar, FiTrash2 } from 'react-icons/fi'
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc, Timestamp } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
 import { formatDateTime } from '../utils/formatters'
-import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
 import type { Review } from '../types'
 
 const AdminReviews = () => {
   const [reviews, setReviews] = useState<Review[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const loadReviews = () => {
-    const stored = getItem<Review[]>(LS_KEYS.REVIEWS, [])
-    setReviews(stored)
-  }
-
+  // 🔥 Real-time Firestore subscription
   useEffect(() => {
-    loadReviews()
-    const interval = setInterval(loadReviews, 3000)
-    return () => clearInterval(interval)
+    setLoading(true)
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'reviews'), orderBy('date', 'desc')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => {
+          const docData = d.data()
+          return {
+            ...docData,
+            id: d.id,
+            date: docData.date instanceof Timestamp ? docData.date.toDate().toISOString() : docData.date,
+          } as Review
+        })
+        setReviews(data)
+        setLoading(false)
+      },
+      (err) => {
+        console.error('Reviews error:', err)
+        setLoading(false)
+      }
+    )
+    return () => unsubscribe()
   }, [])
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure?')) {
-      const updated = reviews.filter((r) => r.id !== id)
-      setReviews(updated)
-      setItem(LS_KEYS.REVIEWS, updated)
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure?')) return
+    try {
+      await deleteDoc(doc(db, 'reviews', id))
+    } catch (err) {
+      console.error('Delete error:', err)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="font-heading font-semibold text-lg">Reviews ({reviews.length})</h2>
-        <button onClick={loadReviews} className="btn-outline text-sm py-2">
-          <FiRefreshCw className="w-4 h-4" /> Refresh
-        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">

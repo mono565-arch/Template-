@@ -19,22 +19,57 @@ const Navbar = () => {
   const { totalItems } = useCartContext()
   const navigate = useNavigate()
 
+  // 🔥 FIX: Check Firebase Auth + localStorage fallback
   useEffect(() => {
-    // Listen to Firebase Auth state changes
-    const unsubscribe = authService.onAuthChange((user) => {
-      if (user) {
-        setAuthUser({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar,
-          role: user.role,
-        })
-      } else {
-        setAuthUser(null)
-      }
-    })
-    return () => unsubscribe()
+    const checkAuth = () => {
+      // First try Firebase Auth
+      const unsubscribe = authService.onAuthChange((user) => {
+        if (user) {
+          setAuthUser({
+            id: user.id,
+            name: user.name || user.email?.split('@')[0] || 'User',
+            email: user.email,
+            avatar: user.avatar,
+            role: user.role,
+          })
+        } else {
+          // Fallback: localStorage (jab tak Firebase sync na ho)
+          const stored = localStorage.getItem('pizza_saucy_user')
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored)
+              if (parsed.id || parsed.email) {
+                setAuthUser({
+                  id: parsed.id || '',
+                  name: parsed.name || parsed.email?.split('@')[0] || 'User',
+                  email: parsed.email || '',
+                  role: parsed.role || 'customer',
+                })
+                return
+              }
+            } catch {
+              // ignore
+            }
+          }
+          setAuthUser(null)
+        }
+      })
+      return unsubscribe
+    }
+
+    const unsubscribe = checkAuth()
+    
+    // Also listen for storage changes (login/logout from other tabs)
+    const handleStorage = () => {
+      const stored = localStorage.getItem('pizza_saucy_user')
+      if (!stored) setAuthUser(null)
+    }
+    window.addEventListener('storage', handleStorage)
+    
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', handleStorage)
+    }
   }, [])
 
   const navLinks = [
@@ -44,16 +79,16 @@ const Navbar = () => {
     { to: routes.CONTACT, label: 'Contact' },
   ]
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen((prev) => !prev)
-  }
-
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false)
-  }
+  const toggleMobileMenu = () => setIsMobileMenuOpen((prev) => !prev)
+  const closeMobileMenu = () => setIsMobileMenuOpen(false)
 
   const handleLogout = async () => {
-    await authService.logout()
+    try {
+      await authService.logout()
+    } catch (err) {
+      console.error(err)
+    }
+    localStorage.removeItem('pizza_saucy_user')
     setAuthUser(null)
     navigate(routes.HOME)
     closeMobileMenu()
@@ -65,7 +100,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
           <Link to={routes.HOME} className="flex items-center gap-2" onClick={closeMobileMenu}>
-          <img src="/logo.png" alt="Pizza Saucy" className="w-10 h-10 object-contain" />
+            <img src="/logo.png" alt="Pizza Saucy" className="w-10 h-10 object-contain" />
             <span className="font-heading font-bold text-xl text-neutral-900">
               Pizza<span className="text-primary-600">Saucy</span>
             </span>
@@ -80,9 +115,7 @@ const Navbar = () => {
                 end={link.to === routes.HOME}
                 className={({ isActive }) =>
                   `font-medium text-sm transition-colors duration-200 ${
-                    isActive
-                      ? 'text-primary-600'
-                      : 'text-neutral-700 hover:text-primary-600'
+                    isActive ? 'text-primary-600' : 'text-neutral-700 hover:text-primary-600'
                   }`
                 }
               >
@@ -162,9 +195,7 @@ const Navbar = () => {
                 onClick={closeMobileMenu}
                 className={({ isActive }) =>
                   `block py-2 px-3 rounded-lg font-medium text-sm transition-colors ${
-                    isActive
-                      ? 'bg-primary-50 text-primary-600'
-                      : 'text-neutral-700 hover:bg-neutral-100'
+                    isActive ? 'bg-primary-50 text-primary-600' : 'text-neutral-700 hover:bg-neutral-100'
                   }`
                 }
               >
@@ -187,11 +218,7 @@ const Navbar = () => {
                     onClick={closeMobileMenu}
                     className="flex items-center gap-3 py-2 px-3 rounded-lg text-neutral-700 hover:bg-neutral-100"
                   >
-                    {authUser.avatar ? (
-                      <img src={authUser.avatar} alt={authUser.name} className="w-6 h-6 rounded-full object-cover" />
-                    ) : (
-                      <FiUser className="w-5 h-5" />
-                    )}
+                    <FiUser className="w-5 h-5" />
                     <span className="font-medium text-sm">{authUser.name}</span>
                   </Link>
                   <button

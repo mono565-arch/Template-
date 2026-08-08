@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { FiPhone, FiMail, FiMapPin, FiClock, FiSend, FiCheckCircle, FiStar } from 'react-icons/fi'
-import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
+import { collection, addDoc } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
+import { LS_KEYS, getItem } from '../utils/localStorage'
 import { addNotification } from '../utils/notifications'
 import { useSettings } from '../hooks/useSettings'
 import type { Review } from '../types'
@@ -28,29 +30,32 @@ const Contact = () => {
 
   const [reviewErrors, setReviewErrors] = useState<Record<string, string>>({})
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const newMessage = {
-      id: 'msg-' + Date.now(),
-      name: contactForm.name || 'Anonymous',
-      email: contactForm.email || '',
-      message: contactForm.message,
-      date: new Date().toISOString(),
-      read: false,
+    try {
+      await addDoc(collection(db, 'messages'), {
+        name: contactForm.name || 'Anonymous',
+        email: contactForm.email || '',
+        phone: contactForm.phone || '',
+        message: contactForm.message,
+        date: new Date().toISOString(),
+        read: false,
+      })
+
+      addNotification({
+        type: 'message',
+        title: 'New Message',
+        message: `From ${contactForm.name || 'Anonymous'}`,
+        link: '/admin/messages',
+      })
+
+      setSubmitted(true)
+      setContactForm({ name: '', email: '', phone: '', message: '' })
+      setTimeout(() => setSubmitted(false), 3000)
+    } catch (err) {
+      console.error('Error saving message:', err)
+      alert('Message bhejne mein error aaya. Dobara try karo.')
     }
-    const existing = getItem<typeof newMessage[]>(LS_KEYS.MESSAGES, [])
-    setItem(LS_KEYS.MESSAGES, [newMessage, ...existing])
-
-    addNotification({
-      type: 'message',
-      title: 'New Message',
-      message: `From ${newMessage.name}`,
-      link: '/admin/messages',
-    })
-
-    setSubmitted(true)
-    setContactForm({ name: '', email: '', phone: '', message: '' })
-    setTimeout(() => setSubmitted(false), 3000)
   }
 
   const validateReview = () => {
@@ -67,20 +72,19 @@ const Contact = () => {
     return Object.keys(errors).length === 0
   }
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
+  const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (validateReview()) {
-      const newReview: Review = {
-        id: 'rev-' + Date.now(),
+    if (!validateReview()) return
+
+    try {
+      await addDoc(collection(db, 'reviews'), {
         name: reviewForm.name,
         email: reviewForm.email,
         review: reviewForm.message,
         rating: reviewForm.rating,
         product: reviewForm.product,
         date: new Date().toISOString(),
-      }
-      const existing = getItem<Review[]>(LS_KEYS.REVIEWS, [])
-      setItem(LS_KEYS.REVIEWS, [newReview, ...existing])
+      })
 
       addNotification({
         type: 'review',
@@ -92,6 +96,9 @@ const Contact = () => {
       setReviewSubmitted(true)
       setReviewForm({ name: '', email: '', message: '', rating: 5, product: '' })
       setTimeout(() => setReviewSubmitted(false), 4000)
+    } catch (err) {
+      console.error('Error saving review:', err)
+      alert('Review submit karne mein error aaya. Dobara try karo.')
     }
   }
 
@@ -141,7 +148,6 @@ const Contact = () => {
             <div className="card p-6 lg:p-8 space-y-6">
               <h2 className="font-heading font-semibold text-xl text-neutral-900">Get in Touch</h2>
               <div className="space-y-5">
-                {/* ✅ ADDED: View on Map link */}
                 <div className="flex items-start gap-4">
                   <div className="w-11 h-11 bg-primary-100 rounded-xl flex items-center justify-center shrink-0">
                     <FiMapPin className="w-5 h-5 text-primary-600" />

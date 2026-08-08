@@ -1,38 +1,32 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiLock, FiUser, FiLogIn } from 'react-icons/fi'
-
-const ADMIN_KEY = 'pizza_saucy_admin_password'
+import { adminAuthService } from '../services/adminAuth'
 
 const AdminLogin = () => {
   const [credentials, setCredentials] = useState({ username: '', password: '' })
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  // Get stored password (default: admin123)
-  const getStoredPassword = (): string => {
-    const stored = localStorage.getItem(ADMIN_KEY)
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored)
-        return parsed.password || parsed
-      } catch {
-        return stored
-      }
-    }
-    return 'admin123' // default
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    const storedPassword = getStoredPassword()
-    
-    if (credentials.username === 'admin' && credentials.password === storedPassword) {
-      localStorage.setItem('pizza_saucy_admin_auth', 'true')
-      navigate('/admin')
-    } else {
-      setError('Invalid username or password')
+    setError('')
+    setLoading(true)
+
+    try {
+      const storedPassword = await adminAuthService.getPassword()
+      
+      if (credentials.username === 'admin' && credentials.password === storedPassword) {
+        localStorage.setItem('pizza_saucy_admin_auth', 'true')
+        navigate('/admin')
+      } else {
+        setError('Invalid username or password')
+      }
+    } catch (err) {
+      setError('Failed to verify password. Check your connection.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -73,9 +67,8 @@ const AdminLogin = () => {
               />
             </div>
           </div>
-          <button type="submit" className="btn-primary w-full">
-            <FiLogIn className="w-4 h-4" />
-            Login
+          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
+            {loading ? 'Verifying...' : <><FiLogIn className="w-4 h-4" /> Login</>}
           </button>
         </form>
       </div>

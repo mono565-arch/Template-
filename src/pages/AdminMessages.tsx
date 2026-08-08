@@ -1,41 +1,71 @@
 import { useState, useEffect } from 'react'
 import { FiMail, FiCheck, FiTrash2, FiRefreshCw } from 'react-icons/fi'
+import { collection, onSnapshot, query, orderBy, updateDoc, doc, deleteDoc, Timestamp } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
 import { formatDateTime } from '../utils/formatters'
-import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
 import type { ContactMessage } from '../types'
 
 const AdminMessages = () => {
   const [messages, setMessages] = useState<ContactMessage[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const loadMessages = () => {
-    const stored = getItem<ContactMessage[]>(LS_KEYS.MESSAGES, [])
-    setMessages(stored)
-  }
-
+  // 🔥 Real-time Firestore subscription
   useEffect(() => {
-    loadMessages()
-    const interval = setInterval(loadMessages, 3000)
-    return () => clearInterval(interval)
+    setLoading(true)
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'messages'), orderBy('date', 'desc')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => {
+          const docData = d.data()
+          return {
+            ...docData,
+            id: d.id,
+            date: docData.date instanceof Timestamp ? docData.date.toDate().toISOString() : docData.date,
+          } as ContactMessage
+        })
+        setMessages(data)
+        setLoading(false)
+      },
+      (err) => {
+        console.error('Messages error:', err)
+        setLoading(false)
+      }
+    )
+    return () => unsubscribe()
   }, [])
 
-  const markAsRead = (id: string) => {
-    const updated = messages.map((m) => (m.id === id ? { ...m, read: true } : m))
-    setMessages(updated)
-    setItem(LS_KEYS.MESSAGES, updated)
-  }
-
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure?')) {
-      const updated = messages.filter((m) => m.id !== id)
-      setMessages(updated)
-      setItem(LS_KEYS.MESSAGES, updated)
+  const markAsRead = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'messages', id), { read: true })
+    } catch (err) {
+      console.error('Mark read error:', err)
     }
   }
 
-  const markAllRead = () => {
-    const updated = messages.map((m) => ({ ...m, read: true }))
-    setMessages(updated)
-    setItem(LS_KEYS.MESSAGES, updated)
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure?')) return
+    try {
+      await deleteDoc(doc(db, 'messages', id))
+    } catch (err) {
+      console.error('Delete error:', err)
+    }
+  }
+
+  const markAllRead = async () => {
+    try {
+      const unread = messages.filter((m) => !m.read)
+      await Promise.all(unread.map((m) => updateDoc(doc(db, 'messages', m.id), { read: true })))
+    } catch (err) {
+      console.error('Mark all read error:', err)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
   return (
@@ -45,9 +75,6 @@ const AdminMessages = () => {
         <div className="flex gap-2">
           <button onClick={markAllRead} className="btn-outline text-sm py-2">
             <FiCheck className="w-4 h-4" /> Mark All Read
-          </button>
-          <button onClick={loadMessages} className="btn-outline text-sm py-2">
-            <FiRefreshCw className="w-4 h-4" /> Refresh
           </button>
         </div>
       </div>

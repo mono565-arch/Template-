@@ -41,6 +41,8 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
+
     setError(null)
     setLoading(true)
 
@@ -52,10 +54,20 @@ const Login = () => {
 
     try {
       const user = await authService.login(formData.email, formData.password)
-      // ✅ User localStorage mein save karo taake route guard kaam kare
-      localStorage.setItem('pizza_saucy_user', JSON.stringify({ email: user?.email || formData.email }))
-      navigate(routes.PROFILE)
+      
+      // Save complete user to localStorage
+      const userToStore = {
+        id: user?.id || '',
+        email: user?.email || formData.email,
+        name: user?.name || formData.email.split('@')[0],
+        role: user?.role || 'customer',
+      }
+      localStorage.setItem('pizza_saucy_user', JSON.stringify(userToStore))
+
+      // 🔥 FIX: Navigate instead of reload — Navbar auth listener catch kar lega
+      navigate(routes.PROFILE, { replace: true })
     } catch (err: unknown) {
+      console.error('Login error:', err)
       setError(getFriendlyError(err))
     } finally {
       setLoading(false)
@@ -63,7 +75,7 @@ const Login = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto py-8">
+    <div className="max-w-md mx-auto py-8 px-4">
       <div className="card p-8 space-y-6">
         <div className="text-center space-y-2">
           <h1 className="font-heading font-bold text-2xl">Welcome Back</h1>
@@ -90,6 +102,7 @@ const Login = () => {
                 className="input pl-10"
                 placeholder="your@email.com"
                 required
+                disabled={loading}
               />
             </div>
           </div>
@@ -105,19 +118,32 @@ const Login = () => {
                 className="input pl-10 pr-10"
                 placeholder="Enter your password"
                 required
+                disabled={loading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                disabled={loading}
               >
                 {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
               </button>
             </div>
           </div>
 
-          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
-            {loading ? 'Logging in...' : <><FiLogIn className="w-4 h-4" /> Login</>}
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+                Logging in...
+              </span>
+            ) : (
+              <><FiLogIn className="w-4 h-4" /> Login</>
+            )}
           </button>
         </form>
 

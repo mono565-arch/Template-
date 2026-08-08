@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { FiPackage, FiClock, FiCheckCircle, FiTruck, FiXCircle, FiSearch, FiRefreshCw } from 'react-icons/fi'
+import { FiPackage, FiClock, FiCheckCircle, FiTruck, FiXCircle, FiSearch } from 'react-icons/fi'
+import { collection, onSnapshot, query, orderBy, updateDoc, doc } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
 import { formatCurrency, formatDateTime } from '../utils/formatters'
-import { LS_KEYS, getItem, setItem } from '../utils/localStorage'
 import { addNotification } from '../utils/notifications'
 import type { Order, OrderStatus } from '../types'
 
@@ -9,7 +10,7 @@ const orderStatuses: OrderStatus[] = ['pending', 'preparing', 'ready', 'complete
 
 const statusConfig: Record<OrderStatus, { label: string; icon: typeof FiClock; style: string }> = {
   pending: { label: 'Pending', icon: FiClock, style: 'bg-yellow-100 text-yellow-700' },
-  preparing: { label: 'Preparing', icon: FiRefreshCw, style: 'bg-primary-100 text-primary-700' },
+  preparing: { label: 'Preparing', icon: FiTruck, style: 'bg-primary-100 text-primary-700' },
   ready: { label: 'Ready', icon: FiTruck, style: 'bg-blue-100 text-blue-700' },
   completed: { label: 'Completed', icon: FiCheckCircle, style: 'bg-green-100 text-green-700' },
   cancelled: { label: 'Cancelled', icon: FiXCircle, style: 'bg-red-100 text-red-700' },
@@ -27,49 +28,41 @@ const AdminOrders = () => {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all')
   const [isLoading, setIsLoading] = useState(true)
 
+  // 🔥 Real-time Firestore subscription
   useEffect(() => {
-    const load = () => {
-      try {
-        const stored = getItem<Order[]>(LS_KEYS.ORDERS, [])
-        const validOrders = stored
-          .filter((o): o is Order => {
-            return (
-              o !== null &&
-              typeof o === 'object' &&
-              'id' in o &&
-              typeof (o as unknown as Record<string, unknown>).id === 'string'
-            )
-          })
-          .sort((a, b) => {
-            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-            return dateB - dateA
-          })
-        setOrders(validOrders)
-      } catch {
-        setOrders([])
-      } finally {
+    setIsLoading(true)
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'orders'), orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => ({
+          ...d.data(),
+          id: d.id,
+        } as Order))
+        setOrders(data)
+        setIsLoading(false)
+      },
+      (err) => {
+        console.error('Orders error:', err)
         setIsLoading(false)
       }
-    }
-    load()
-    const interval = setInterval(load, 2000)
-    return () => clearInterval(interval)
+    )
+    return () => unsubscribe()
   }, [])
 
-  const updateStatus = (orderId: string, newStatus: OrderStatus) => {
-    const order = orders.find((o) => o.id === orderId)
-    const updated = orders.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    setOrders(updated)
-    setItem(LS_KEYS.ORDERS, updated)
+  const updateStatus = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { status: newStatus })
 
-    if (newStatus === 'cancelled' && order) {
-      addNotification({
-        type: 'order_cancelled',
-        title: 'Order Cancelled',
-        message: `${orderId} has been cancelled`,
-        link: '/admin/orders',
-      })
+      if (newStatus === 'cancelled') {
+        addNotification({
+          type: 'order_cancelled',
+          title: 'Order Cancelled',
+          message: `${orderId} has been cancelled`,
+          link: '/admin/orders',
+        })
+      }
+    } catch (err) {
+      console.error('Update status error:', err)
     }
   }
 

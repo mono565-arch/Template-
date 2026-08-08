@@ -6,8 +6,9 @@ import {
   FiPackage, FiClock, FiCheckCircle, FiXCircle,
   FiTag, FiGrid, FiTruck
 } from 'react-icons/fi'
+import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore'
+import { db } from '../firebase/firebase'
 import { formatCurrency, formatDateTime } from '../utils/formatters'
-import { getItem, LS_KEYS } from '../utils/localStorage'
 import { getNotifications, markNotificationRead, markAllNotificationsRead, getUnreadCount, getLatestNotifications, getNotificationIcon, type Notification } from '../utils/notifications'
 import type { Order, ContactMessage, Review } from '../types'
 
@@ -23,31 +24,90 @@ const Admin = () => {
   const [couponsCount, setCouponsCount] = useState(0)
   const notificationRef = useRef<HTMLDivElement>(null)
 
-  const loadData = useCallback(() => {
-    const storedOrders = getItem<Order[]>(LS_KEYS.ORDERS, [])
-    const storedMessages = getItem<ContactMessage[]>(LS_KEYS.MESSAGES, [])
-    const storedReviews = getItem<Review[]>(LS_KEYS.REVIEWS, [])
-    const storedProducts = getItem<{ id: string }[]>(LS_KEYS.PRODUCTS, [])
-    const storedCategories = getItem<{ id: string }[]>(LS_KEYS.CATEGORIES, [])
-    const storedCoupons = getItem<{ id: string }[]>(LS_KEYS.COUPONS, [])
+  // 🔥 REAL-TIME FIRESTORE SUBSCRIPTIONS (Refresh pe bhi rahega)
+  useEffect(() => {
+    const unsubOrders = onSnapshot(
+      query(collection(db, 'orders'), orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => {
+          const docData = d.data()
+          return {
+            ...docData,
+            id: d.id,
+            createdAt: docData.createdAt instanceof Timestamp ? docData.createdAt.toDate().toISOString() : docData.createdAt,
+          } as Order
+        })
+        setOrders(data)
+      }
+    )
 
-    setOrders(storedOrders)
-    setMessages(storedMessages)
-    setReviews(storedReviews)
-    setProductsCount(storedProducts.length)
-    setCategoriesCount(storedCategories.length)
-    setCouponsCount(storedCoupons.length)
+    const unsubMessages = onSnapshot(
+      query(collection(db, 'messages'), orderBy('date', 'desc')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => {
+          const docData = d.data()
+          return {
+            ...docData,
+            id: d.id,
+            date: docData.date instanceof Timestamp ? docData.date.toDate().toISOString() : docData.date,
+          } as ContactMessage
+        })
+        setMessages(data)
+      }
+    )
 
+    const unsubReviews = onSnapshot(
+      query(collection(db, 'reviews'), orderBy('date', 'desc')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => {
+          const docData = d.data()
+          return {
+            ...docData,
+            id: d.id,
+            date: docData.date instanceof Timestamp ? docData.date.toDate().toISOString() : docData.date,
+          } as Review
+        })
+        setReviews(data)
+      }
+    )
+
+    const unsubProducts = onSnapshot(
+      collection(db, 'products'),
+      (snapshot) => setProductsCount(snapshot.docs.length)
+    )
+
+    const unsubCategories = onSnapshot(
+      collection(db, 'categories'),
+      (snapshot) => setCategoriesCount(snapshot.docs.length)
+    )
+
+    const unsubCoupons = onSnapshot(
+      collection(db, 'coupons'),
+      (snapshot) => setCouponsCount(snapshot.docs.length)
+    )
+
+    return () => {
+      unsubOrders()
+      unsubMessages()
+      unsubReviews()
+      unsubProducts()
+      unsubCategories()
+      unsubCoupons()
+    }
+  }, [])
+
+  // Local notifications (sirf yeh localStorage se hain)
+  const loadNotifications = useCallback(() => {
     const notifs = getNotifications()
     setNotifications(notifs)
     setUnreadCount(getUnreadCount())
   }, [])
 
   useEffect(() => {
-    loadData()
-    const interval = setInterval(loadData, 3000)
+    loadNotifications()
+    const interval = setInterval(loadNotifications, 3000)
     return () => clearInterval(interval)
-  }, [loadData])
+  }, [loadNotifications])
 
   // Close dropdown on outside click
   useEffect(() => {

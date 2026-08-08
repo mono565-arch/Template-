@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FiArrowRight, FiStar, FiClock, FiShoppingCart, FiTag } from 'react-icons/fi'
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase/firebase'
 import { routes } from '../constants/routes'
 import SectionTitle from '../components/SectionTitle'
@@ -22,14 +22,23 @@ const Home = () => {
   const [reviews, setReviews] = useState<ReviewData[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
 
+  // 🔥 FIX: Reviews from Firestore (real-time, refresh-safe)
   useEffect(() => {
-    const loadReviews = () => {
-      const stored = getItem<ReviewData[]>(LS_KEYS.REVIEWS, [])
-      setReviews(stored)
-    }
-    loadReviews()
-    const interval = setInterval(loadReviews, 2000)
-    return () => clearInterval(interval)
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'reviews'), orderBy('date', 'desc')),
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => {
+          const docData = d.data()
+          return {
+            ...docData,
+            id: d.id,
+            date: docData.date instanceof Timestamp ? docData.date.toDate().toISOString() : docData.date,
+          } as ReviewData
+        })
+        setReviews(data)
+      }
+    )
+    return () => unsubscribe()
   }, [])
 
   // Real-time Firestore subscription for deals
@@ -52,7 +61,6 @@ const Home = () => {
     navigate(`${routes.MENU}?category=Deals`)
   }
 
-  // 🔥 FIX: Add Deal to Cart
   const handleAddDealToCart = (deal: Deal, e: React.MouseEvent) => {
     e.stopPropagation()
     try {
@@ -80,7 +88,7 @@ const Home = () => {
 
   return (
     <div className="overflow-x-hidden">
-      {/* 1. Hero Section - RESPONSIVE FIXED */}
+      {/* 1. Hero Section */}
       <section className="relative overflow-hidden bg-neutral-900">
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-0 right-0 w-64 h-64 sm:w-96 sm:h-96 bg-primary rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -88,7 +96,6 @@ const Home = () => {
         </div>
         <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center py-12 sm:py-16 lg:py-24">
-            {/* Text Content */}
             <div className="space-y-5 sm:space-y-6 text-center lg:text-left order-1">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-primary/10 text-primary rounded-full text-xs sm:text-sm font-medium">
                 <FiStar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -128,7 +135,6 @@ const Home = () => {
               </div>
             </div>
 
-            {/* Image - RESPONSIVE FIXED */}
             <div className="relative flex justify-center lg:justify-end order-2 mt-4 lg:mt-0">
               <button
                 onClick={() => handleCategoryClick('Pizza')}
@@ -141,7 +147,6 @@ const Home = () => {
                   alt="Delicious Pizza"
                   className="relative w-full h-full object-cover rounded-full border-4 border-primary/30 shadow-2xl group-hover:scale-105 transition-transform duration-500"
                 />
-                {/* Badges - Mobile friendly positioning */}
                 <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-white rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-2 shadow-lg">
                   <p className="text-[10px] sm:text-xs text-neutral-500">Starting from</p>
                   <p className="font-bold text-primary-700 text-sm sm:text-lg">{formatCurrency(899)}</p>
@@ -156,7 +161,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 2. Categories - RESPONSIVE FIXED */}
+      {/* 2. Categories */}
       <section className="py-12 sm:py-16 lg:py-24 bg-white">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionTitle
@@ -176,7 +181,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 3. Deals Section - RESPONSIVE + ADD TO CART FIXED */}
+      {/* 3. Deals Section */}
       <section className="py-12 sm:py-16 lg:py-24 bg-primary-50/50">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionTitle
@@ -240,7 +245,6 @@ const Home = () => {
                         </div>
                       ))}
                     </div>
-                    {/* 🔥 FIX: Add to Cart button */}
                     <button 
                       onClick={(e) => handleAddDealToCart(deal, e)}
                       className="mt-3 sm:mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-neutral-900 text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors active:scale-95"
@@ -256,25 +260,32 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 4. Customer Reviews */}
+      {/* 4. Customer Reviews - REAL TIME */}
       <section className="py-12 sm:py-16 lg:py-24 bg-secondary-50/30">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionTitle
             title="What Our Customers Say"
             subtitle="Real reviews from real food lovers"
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-            {reviews.map((review) => (
-              <ReviewCard
-                key={review.id}
-                name={review.name}
-                review={review.review}
-                rating={review.rating}
-                avatar={review.avatar}
-                role={review.role}
-              />
-            ))}
-          </div>
+          {reviews.length === 0 ? (
+            <div className="text-center py-12">
+              <FiStar className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
+              <p className="text-neutral-500">No reviews yet.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+              {reviews.map((review) => (
+                <ReviewCard
+                  key={review.id}
+                  name={review.name}
+                  review={review.review}
+                  rating={review.rating}
+                  avatar={review.avatar}
+                  role={review.role}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
